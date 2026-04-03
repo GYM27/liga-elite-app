@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 
-const StatusWidget = ({ norteCount = 2, sulCount = 4 }) => {
+const StatusWidget = ({ norteCount = 0, sulCount = 0 }) => {
   const percentageNorte = (norteCount / 6) * 100;
   const percentageSul = (sulCount / 6) * 100;
 

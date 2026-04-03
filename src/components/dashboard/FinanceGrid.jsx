@@ -15,7 +15,7 @@ const StatCard = ({ icon: Icon, label, value, colorClass, highlight }) => (
   </div>
 );
 
-const FinanceGrid = () => {
+const FinanceGrid = ({ stats }) => {
   return (
     <section className="mb-8">
       <div className="flex items-center gap-2 mb-4">
@@ -24,12 +24,12 @@ const FinanceGrid = () => {
       </div>
       
       <div className="grid grid-cols-2 gap-3 h-full">
-        {/* Main Balance - 2 rows span */}
+        {/* Saldo - 2 rows span */}
         <div className="row-span-2">
           <StatCard 
             icon={Wallet} 
             label="SALDO DA BANCA" 
-            value="342.50€" 
+            value={`${stats?.saldo?.toFixed(2) || '0.00'}€`} 
             colorClass="bg-primary/20 text-primary"
             highlight
           />
@@ -40,7 +40,7 @@ const FinanceGrid = () => {
           <StatCard 
             icon={TrendingUp} 
             label="ROI ÉPOCA" 
-            value="+12.4%" 
+            value={`+${stats?.roi || '0'}%`} 
             colorClass="bg-secondary/20 text-secondary"
           />
         </div>
@@ -48,7 +48,7 @@ const FinanceGrid = () => {
           <StatCard 
             icon={DollarSign} 
             label="GANHO POTENCIAL" 
-            value="84.00€" 
+            value={`${stats?.ganhoPotencial?.toFixed(2) || '0.00'}€`} 
             colorClass="bg-yellow-500/20 text-yellow-500"
           />
         </div>
