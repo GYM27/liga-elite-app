@@ -33,19 +33,27 @@ export const useDashboardData = () => {
       const idsNorte = (rankingNormalizado || []).filter(l => l.liga_atual?.toLowerCase() === 'norte').map(l => l.jogador_id);
       const idsSul = (rankingNormalizado || []).filter(l => l.liga_atual?.toLowerCase() === 'sul').map(l => l.jogador_id);
 
-      const { data: allHistory } = await supabase.from('palpites').select('*, jogadores(nome, foto_url)');
+      // 1. Criar Mapa de Identidades de Elite (Para evitar nomes fantasma)
+      const playerMap = {};
+      rankingNormalizado.forEach(p => {
+        playerMap[p.jogador_id] = { nome: p.nome, foto_url: p.foto_url };
+      });
+
+      const { data: allHistory } = await supabase.from('palpites').select('*');
       
       const historyByMonth = {}; 
       const winCount = {}; 
 
       (allHistory || []).forEach(p => {
         const month = getMonthFromDate(p.data_palpite);
+        const playerInfo = playerMap[p.jogador_id] || { nome: 'Sócio', foto_url: null };
+        
         if (!historyByMonth[month]) historyByMonth[month] = {};
         if (!historyByMonth[month][p.jogador_id]) {
-          historyByMonth[month][p.jogador_id] = { acertos: 0, nome: p.jogadores?.nome, foto_url: p.jogadores?.foto_url };
+          historyByMonth[month][p.jogador_id] = { acertos: 0, nome: playerInfo.nome, foto_url: playerInfo.foto_url };
         }
         if (p.resultado_individual?.toUpperCase() === 'GREEN') historyByMonth[month][p.jogador_id].acertos++;
-        if (!winCount[p.jogador_id]) winCount[p.jogador_id] = { wins: 0, loses: 0, nome: p.jogadores?.nome, foto_url: p.jogadores?.foto_url, jogador_id: p.jogador_id };
+        if (!winCount[p.jogador_id]) winCount[p.jogador_id] = { wins: 0, loses: 0, nome: playerInfo.nome, foto_url: playerInfo.foto_url, jogador_id: p.jogador_id };
       });
 
       const currentMonthText = getMonthFromDate(new Date().toISOString());
@@ -57,15 +65,13 @@ export const useDashboardData = () => {
           .sort((a, b) => b.acertos_mes - a.acertos_mes);
       });
 
-      // SÓ CONTAR MESES CONCLUÍDOS (Hall of Fame Master)
+      // SÓ CONTAR MESES CONCLUÍDOS
       Object.keys(allRankingsFormatted).forEach(m => {
         if (m === currentMonthText) return;
-
         const players = allRankingsFormatted[m];
         if (players && players.length > 1) { 
           const max = players[0].acertos_mes;
           const min = players[players.length - 1].acertos_mes;
-          
           if (max !== min) {
             players.forEach(p => {
               if (p.acertos_mes === max && max > 0) winCount[p.jogador_id].wins++;
@@ -76,7 +82,12 @@ export const useDashboardData = () => {
       });
 
       const sortedMonths = MONTH_ORDER.filter(m => allRankingsFormatted[m]);
-      const currentWeekPalpites = (allHistory || []).filter(p => Number(p.semana) === currentWeek);
+      
+      // 2. Mapear Nomes para o Dashboard de Forma Robusta
+      const currentWeekPalpites = (allHistory || []).filter(p => Number(p.semana) === currentWeek).map(p => ({
+         ...p,
+         jogadores: playerMap[p.jogador_id] || { nome: 'Sócio Desconhecido', foto_url: null }
+      }));
 
       // Obter Pagamentos Mensais (Mensalidades)
       const { data: rawMensalidades } = await supabase.from('mensalidades').select('jogador_id, pago').eq('mes', currentMonthText);
@@ -87,7 +98,6 @@ export const useDashboardData = () => {
 
       // Obter Saldo Real das Partições da Banca Master
       const { data: bancaParts, error: bError } = await supabase.from('banca_particoes').select('*');
-      if (bError) console.error('Erro Banca Parts:', bError);
       const saldoReal = (bancaParts || []).reduce((acc, p) => acc + (Number(p.casa_valor || 0) + Number(p.banco_valor || 0)), 0);
 
       // Obter Lista de Equipas para Autocomplete
