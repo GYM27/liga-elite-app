@@ -198,9 +198,9 @@ const MemberCard = ({ player, isAdmin, currentMonth, currentWeek, onComplete, ed
        const fileExt = file.name.split('.').pop();
        const fileName = `${player.jogador_id}-${Math.random().toString(36).substring(7)}.${fileExt}`;
        const filePath = `membros/${fileName}`;
-       const { error: uploadError } = await supabase.storage.from('fotos_perfil').upload(filePath, file);
+       const { error: uploadError } = await supabase.storage.from('fotos').upload(filePath, file);
        if (uploadError) throw uploadError;
-       const { data: { publicUrl } } = supabase.storage.from('fotos_perfil').getPublicUrl(filePath);
+       const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(filePath);
        setFormData({ ...formData, foto_url: publicUrl });
 
        // UTILIZADOR TAMBÉM PODE CARREGAR FOTO (AUTO-SAVE)
