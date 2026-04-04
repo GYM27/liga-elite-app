@@ -35,21 +35,6 @@ const StatusWidget = ({ norteCount = 0, sulCount = 0 }) => {
         </div>
       </div>
 
-      {/* Countdown & CTA */}
-      <div className="flex items-center justify-between p-4 glass-card border-none bg-primary/5">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Clock size={16} className="text-primary" />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">FECHO EM</p>
-            <p className="text-sm font-mono font-bold text-primary tracking-wider">34:12:05</p>
-          </div>
-        </div>
-        <button className="px-5 py-2.5 bg-primary text-slate-950 text-xs font-black rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_4px_15px_rgba(34,197,94,0.4)]">
-          REGISTAR AGORA
-        </button>
-      </div>
     </section>
   );
 };

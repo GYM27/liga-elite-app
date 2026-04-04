@@ -4,6 +4,8 @@ import LiveTracker from '../components/dashboard/LiveTracker';
 import FinanceGrid from '../components/dashboard/FinanceGrid';
 import RankingTeaser from '../components/dashboard/RankingTeaser';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { ChevronRight, Ticket } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { nortePalpites, sulPalpites, stats, submissions, ranking, loading } = useDashboardData();
@@ -29,8 +31,27 @@ const Dashboard = () => {
         </p>
       </div>
 
-      <StatusWidget norteCount={submissions.norte} sulCount={submissions.sul} />
       <LiveTracker norteSegments={nortePalpites} sulSegments={sulPalpites} />
+
+      {/* Atalho para Bilhetes */}
+      <div className="mb-8">
+        <Link 
+          to="/bilhetes"
+          className="w-full flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl hover:bg-primary/20 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/20 rounded-xl text-primary">
+              <Ticket size={18} />
+            </div>
+            <div>
+              <p className="text-white font-bold text-xs uppercase tracking-widest">Ver Bilhetes das Ligas</p>
+              <p className="text-[10px] text-slate-500 font-medium">Odd Total e Prémio acumulado</p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-primary group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
+
       <FinanceGrid stats={stats} />
       <RankingTeaser top3={ranking.slice(0, 3)} />
     </div>
