@@ -48,6 +48,8 @@ export const useDashboardData = () => {
         if (!winCount[p.jogador_id]) winCount[p.jogador_id] = { wins: 0, loses: 0, nome: p.jogadores?.nome, foto_url: p.jogadores?.foto_url, jogador_id: p.jogador_id };
       });
 
+      const currentMonthText = getMonthFromDate(new Date().toISOString());
+
       const allRankingsFormatted = {};
       Object.keys(historyByMonth).forEach(m => {
         allRankingsFormatted[m] = Object.entries(historyByMonth[m])
@@ -55,15 +57,21 @@ export const useDashboardData = () => {
           .sort((a, b) => b.acertos_mes - a.acertos_mes);
       });
 
+      // SÓ CONTAR MESES CONCLUÍDOS (Hall of Fame Master)
       Object.keys(allRankingsFormatted).forEach(m => {
+        if (m === currentMonthText) return;
+
         const players = allRankingsFormatted[m];
-        if (players.length > 0) {
+        if (players && players.length > 1) { 
           const max = players[0].acertos_mes;
           const min = players[players.length - 1].acertos_mes;
-          players.forEach(p => {
-            if (p.acertos_mes === max && max > 0) winCount[p.jogador_id].wins++;
-            if (p.acertos_mes === min) winCount[p.jogador_id].loses++;
-          });
+          
+          if (max !== min) {
+            players.forEach(p => {
+              if (p.acertos_mes === max && max > 0) winCount[p.jogador_id].wins++;
+              if (p.acertos_mes === min) winCount[p.jogador_id].loses++;
+            });
+          }
         }
       });
 
@@ -71,16 +79,16 @@ export const useDashboardData = () => {
       const currentWeekPalpites = (allHistory || []).filter(p => Number(p.semana) === currentWeek);
 
       // Obter Pagamentos Mensais (Mensalidades)
-      const currentMonthText = getMonthFromDate(new Date().toISOString());
       const { data: rawMensalidades } = await supabase.from('mensalidades').select('jogador_id, pago').eq('mes', currentMonthText);
       const paidMap = (rawMensalidades || []).reduce((acc, m) => {
         acc[m.jogador_id] = m.pago;
         return acc;
       }, {});
 
-      // Obter Saldo Real da Banca Master
-      const { data: bancaData } = await supabase.from('vista_banca_master').select('banca_total').single();
-      const saldoReal = bancaData ? Number(bancaData.banca_total) : 0;
+      // Obter Saldo Real das Partições da Banca Master
+      const { data: bancaParts, error: bError } = await supabase.from('banca_particoes').select('*');
+      if (bError) console.error('Erro Banca Parts:', bError);
+      const saldoReal = (bancaParts || []).reduce((acc, p) => acc + (Number(p.casa_valor || 0) + Number(p.banco_valor || 0)), 0);
 
       // Obter Lista de Equipas para Autocomplete
       const { data: rawEquipas } = await supabase.from('equipas').select('nome').order('nome');

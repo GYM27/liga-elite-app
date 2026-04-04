@@ -4,11 +4,11 @@ import LiveTracker from '../components/dashboard/LiveTracker';
 import FinanceGrid from '../components/dashboard/FinanceGrid';
 import RankingTeaser from '../components/dashboard/RankingTeaser';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { ChevronRight, Ticket } from 'lucide-react';
+import { ChevronRight, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { nortePalpites, sulPalpites, stats, submissions, ranking, loading } = useDashboardData();
+  const { nortePalpites, sulPalpites, stats, submissions, ranking, loading, currentWeek } = useDashboardData();
 
   if (loading) {
     return (
@@ -31,24 +31,24 @@ const Dashboard = () => {
         </p>
       </div>
 
-      <LiveTracker norteSegments={nortePalpites} sulSegments={sulPalpites} />
+      <LiveTracker norteSegments={nortePalpites} sulSegments={sulPalpites} currentWeek={currentWeek} />
 
-      {/* Atalho para Bilhetes */}
-      <div className="mb-8">
+      {/* Atalho para Estatísticas Financeiras */}
+      <div className="mb-8 px-4">
         <Link 
-          to="/bilhetes"
-          className="w-full flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl hover:bg-primary/20 transition-all group"
+          to="/estatisticas"
+          className="w-full flex items-center justify-between p-5 bg-primary/10 border-2 border-primary/20 rounded-[32px] hover:bg-primary/20 transition-all group shadow-xl"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-xl text-primary">
-              <Ticket size={18} />
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/20 rounded-2xl text-primary border border-primary/30">
+              <TrendingUp size={20} />
             </div>
             <div>
-              <p className="text-white font-bold text-xs uppercase tracking-widest">Ver Bilhetes das Ligas</p>
-              <p className="text-[10px] text-slate-500 font-medium">Odd Total e Prémio acumulado</p>
+              <p className="text-white font-black text-xs uppercase tracking-widest">Análise de Lucros & Estatísticas</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic">Balanço detalhado da jornada</p>
             </div>
           </div>
-          <ChevronRight size={18} className="text-primary group-hover:translate-x-1 transition-transform" />
+          <ChevronRight size={22} className="text-primary group-hover:translate-x-2 transition-transform" />
         </Link>
       </div>
 

@@ -11,8 +11,8 @@ const Membros = () => {
   const [formData, setFormData] = useState({ nome: '', foto_url: '', liga_atual: 'Norte', divida: 0, motivo_divida: '' });
   const [isAdding, setIsAdding] = useState(false);
 
+  // GESTÃO DE PERMISSÃO: Utilizadores podem clicar no editar (apenas fotos/nomes)
   const handleEdit = (player) => {
-    if (!isAdmin) return;
     setEditingId(player.jogador_id);
     setFormData({ 
       nome: player.nome, 
@@ -25,20 +25,26 @@ const Membros = () => {
 
   const handleSave = async (id) => {
     try {
-      const { error } = await supabase.from('jogadores').update({ 
+      // Se não for admin, NUNCA muda o nome nem a liga na base de dados (Cofre Elite)
+      const updateData = isAdmin ? { 
         nome: formData.nome, 
         foto_url: formData.foto_url,
         liga_atual: formData.liga_atual 
-      }).eq('id', id);
+      } : {
+        foto_url: formData.foto_url
+      };
+
+      const { error } = await supabase.from('jogadores').update(updateData).eq('id', id);
       
       if (error) throw error;
-      alert('Perfil de Elite Atualizado! 🚀');
+      alert('Perfil Atualizado com Sucesso! 🚀');
       setEditingId(null);
       fetchData();
     } catch (err) { alert('Erro: ' + err.message); }
   };
 
   const handleAddPlayer = async () => {
+     if (!isAdmin) return alert('Poder Apenas para o Comandante! 🛑');
      if (!formData.nome) return;
      try {
         const { error } = await supabase.from('jogadores').insert([{
@@ -55,13 +61,13 @@ const Membros = () => {
   };
 
   const generatePaymentReport = () => {
-    const pagos = ranking.filter(p => p.mensalidade_paga).map(p => `🟢 ${p.nome}`);
-    const pendentes = ranking.filter(p => !p.mensalidade_paga).map(p => `🔴 ${p.nome}`);
+    if (!isAdmin) return alert('Acesso Reservado à Tesouraria! 🛑');
+    const pagos = ranking.filter(p => p.mensalidade_paga).map(p => `✅ ${p.nome}`);
+    const pendentes = ranking.filter(p => !p.mensalidade_paga).map(p => `❌ ${p.nome}`);
     let report = `🏆 *LIGA DE ELITE - MENSALIDADES* 🏆\n📅 *MÊS: ${currentMonth?.toUpperCase() || 'ABRIL'}*\n\n💰 *PAGOS:* \n${pagos.length > 0 ? pagos.join('\n') : '_Ninguém pagou ainda_ 🏮'}\n\n⚠️ *PENDENTES:* \n${pendentes.length > 0 ? pendentes.join('\n') : '_Tudo em dia! 🔥_'}\n\n_Elite Bet_ 🏁`;
     
     const encodedReport = encodeURIComponent(report);
     window.open(`https://wa.me/?text=${encodedReport}`, '_blank');
-
     navigator.clipboard.writeText(report);
     alert('Balanço copiado e WhatsApp aberto! 📱⚡');
   };
@@ -90,50 +96,30 @@ const Membros = () => {
         )}
       </div>
 
-      {/* ADICIONAR NOVO (MODAL INTERNO) */}
-      {isAdding && (
+      {/* ADICIONAR NOVO (APENAS ADMIN) */}
+      {isAdding && isAdmin && (
          <div className="bg-slate-900 border-2 border-primary/20 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
             <h3 className="text-white font-black text-xs uppercase tracking-widest italic flex items-center gap-3"><UserPlus size={18} className="text-primary" /> Novo Recruta de Elite</h3>
             <div className="space-y-4">
                <div className="flex items-center gap-4">
                   <div className="relative group cursor-pointer" onClick={() => document.getElementById('upload-new').click()}>
                      <div className="w-20 h-20 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-center text-primary group-hover:bg-primary/20 transition-all">
-                        {saving ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}
+                        <Camera size={32} />
                      </div>
-                     <input id="upload-new" type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        setSaving(true);
-                        try {
-                           const fileExt = file.name.split('.').pop();
-                           const fileName = `new-${Date.now()}.${fileExt}`;
-                           const filePath = `membros/${fileName}`;
-                           await supabase.storage.from('fotos_perfil').upload(filePath, file);
-                           const { data: { publicUrl } } = supabase.storage.from('fotos_perfil').getPublicUrl(filePath);
-                           setFormData({ ...formData, foto_url: publicUrl });
-                           alert('Foto pronta para o alistamento! 📸');
-                        } catch (err) { alert(err.message); }
-                        finally { setSaving(false); }
-                     }} />
+                     <input id="upload-new" type="file" accept="image/*" className="hidden" />
                   </div>
                   <div>
                      <p className="text-white font-black text-sm uppercase italic">Foto de Perfil</p>
-                     <p className="text-[9px] text-slate-500 font-bold uppercase">Upload Direto</p>
+                     <p className="text-[9px] text-slate-500 font-bold uppercase">Novo Recrutamento</p>
                   </div>
                </div>
-
                <div className="space-y-1">
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Identificação</p>
                   <input type="text" placeholder="Nome Completo..." className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-sm font-black text-white outline-none focus:border-primary/50" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} />
                </div>
-
-               <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">URL da Foto (Gerado auto)</p>
-                  <input type="text" placeholder="URL da Foto..." className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-bold text-slate-500 outline-none" value={formData.foto_url} readOnly />
-               </div>
                <div className="flex gap-2">
                   <button onClick={handleAddPlayer} className="flex-1 h-14 bg-primary text-slate-950 rounded-2xl font-black uppercase text-[11px] tracking-widest active:scale-95 transition-all">Alistar Agora</button>
-                  <button onClick={() => setIsAdding(false)} className="px-6 h-14 bg-slate-800 text-white rounded-2xl font-black uppercase text-[11px] active:scale-95 transition-all">Sair</button>
+                  <button onClick={() => setIsAdding(false)} className="px-6 h-14 bg-slate-800 text-white rounded-2xl font-black uppercase text-[11px] active:scale-95 transition-all">Cancelar</button>
                </div>
             </div>
          </div>
@@ -161,7 +147,7 @@ const MemberCard = ({ player, isAdmin, currentMonth, currentWeek, onComplete, ed
   const [saving, setSaving] = useState(false);
 
   const toggleMonthly = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) return alert('Operação Reservada ao Comandante! 🏮⚡');
     setSaving(true);
     try {
       const isPaid = player.mensalidade_paga;
@@ -212,29 +198,17 @@ const MemberCard = ({ player, isAdmin, currentMonth, currentWeek, onComplete, ed
        const fileExt = file.name.split('.').pop();
        const fileName = `${player.jogador_id}-${Math.random().toString(36).substring(7)}.${fileExt}`;
        const filePath = `membros/${fileName}`;
-
-       const { error: uploadError } = await supabase.storage
-         .from('fotos_perfil')
-         .upload(filePath, file);
-
+       const { error: uploadError } = await supabase.storage.from('fotos_perfil').upload(filePath, file);
        if (uploadError) throw uploadError;
-
-       const { data: { publicUrl } } = supabase.storage
-         .from('fotos_perfil')
-         .getPublicUrl(filePath);
-
+       const { data: { publicUrl } } = supabase.storage.from('fotos_perfil').getPublicUrl(filePath);
        setFormData({ ...formData, foto_url: publicUrl });
 
-       // GRAVAR LOGO NA DB (ELITE PRECISÃO)
-       const { error: dbError } = await supabase.from('jogadores')
-         .update({ foto_url: publicUrl })
-         .eq('id', player.jogador_id);
-
+       // UTILIZADOR TAMBÉM PODE CARREGAR FOTO (AUTO-SAVE)
+       const { error: dbError } = await supabase.from('jogadores').update({ foto_url: publicUrl }).eq('id', player.jogador_id);
        if (dbError) throw dbError;
-
-       alert('Foto de Elite Ativada! 📸🚀');
+       alert('Foto Actualizada! 📸');
        if (onComplete) await onComplete();
-    } catch (err) { alert('Erro no upload: ' + err.message); }
+    } catch (err) { alert('Erro: ' + err.message); }
     finally { setSaving(false); }
   };
 
@@ -249,39 +223,34 @@ const MemberCard = ({ player, isAdmin, currentMonth, currentWeek, onComplete, ed
                  <div className="w-16 h-16 bg-primary/10 border-2 border-primary/20 rounded-2xl flex items-center justify-center text-primary group-hover:bg-primary/20 transition-all">
                     {saving ? <Loader2 className="animate-spin" size={24} /> : <Camera size={24} />}
                  </div>
-                 <div className="absolute -bottom-1 -right-1 bg-primary text-slate-950 p-1 rounded-lg">
-                    <PlusCircle size={10} strokeWidth={4} />
-                 </div>
                  <input id={`upload-${player.jogador_id}`} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
               </div>
               <div>
                  <h4 className="text-white font-black text-sm uppercase italic tracking-widest leading-none">Editar Perfil</h4>
-                 <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Upload ou URL de Foto</p>
+                 <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Utilizador can access photo & name</p>
               </div>
            </div>
            
            <div className="space-y-4">
               <div className="space-y-1">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome de Guerra</p>
-                 <input type="text" className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-white font-black text-sm outline-none focus:border-primary/50" value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
+                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex justify-between items-center">
+                    <span>Nome de Guerra</span>
+                    {!isAdmin && <span className="text-rose-500/50 flex items-center gap-1"><AlertCircle size={10} /> Bloqueado</span>}
+                 </p>
+                 <input type="text" className={`w-full h-14 bg-slate-950 border rounded-2xl px-5 text-sm font-black outline-none transition-all ${!isAdmin ? 'text-slate-600 border-white/5 opacity-50 cursor-not-allowed' : 'text-white border-white/10 focus:border-primary/50'}`} value={formData.nome} onChange={(e) => isAdmin && setFormData({...formData, nome: e.target.value})} readOnly={!isAdmin} />
               </div>
 
-              <div className="space-y-1">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">URL da Imagem (Preenchido auto após upload)</p>
-                 <div className="relative">
-                    <input type="text" className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 pr-12 text-[10px] font-bold text-slate-400 outline-none focus:border-primary/50" value={formData.foto_url} onChange={(e) => setFormData({...formData, foto_url: e.target.value})} placeholder="https://..." />
-                    <Link2 size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600" />
-                 </div>
-              </div>
-
-              <div className="space-y-1">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Classificação das Ligas</p>
-                 <div className="flex gap-2 p-1 bg-slate-950 rounded-2xl border border-white/5 h-14 items-center">
-                    <button type="button" onClick={() => setFormData({...formData, liga_atual: 'Norte'})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === 'Norte' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-slate-600 hover:text-slate-400'}`}>NORTE</button>
-                    <button type="button" onClick={() => setFormData({...formData, liga_atual: null})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === null ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20' : 'text-slate-600 hover:text-slate-400'}`}>AUTO</button>
-                    <button type="button" onClick={() => setFormData({...formData, liga_atual: 'Sul'})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === 'Sul' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-600 hover:text-slate-400'}`}>SUL</button>
-                 </div>
-              </div>
+              {/* LIGAS: APENAS ADMIN PODE TROCAR (Bloqueio Elite) */}
+              {isAdmin && (
+                <div className="space-y-1">
+                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Classificação das Ligas (ADMIN ONLY)</p>
+                   <div className="flex gap-2 p-1 bg-slate-950 rounded-2xl border border-white/5 h-14 items-center">
+                      <button type="button" onClick={() => setFormData({...formData, liga_atual: 'Norte'})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === 'Norte' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-slate-600 hover:text-slate-400'}`}>NORTE</button>
+                      <button type="button" onClick={() => setFormData({...formData, liga_atual: null})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === null ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20' : 'text-slate-600 hover:text-slate-400'}`}>AUTO</button>
+                      <button type="button" onClick={() => setFormData({...formData, liga_atual: 'Sul'})} className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all ${formData.liga_atual === 'Sul' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-600 hover:text-slate-400'}`}>SUL</button>
+                   </div>
+                </div>
+              )}
            </div>
 
            <div className="flex gap-3 pt-3 border-t border-white/5">
@@ -303,14 +272,17 @@ const MemberCard = ({ player, isAdmin, currentMonth, currentWeek, onComplete, ed
           </div>
 
           <div className="flex justify-between gap-3 pt-4 border-t border-white/5">
+              {/* UTILIZADORES PODEM EDITAR A SUA FOTO/NOME */}
               <button onClick={() => handleEdit(player)} className="flex-1 h-12 flex items-center justify-center bg-white/5 border border-white/5 rounded-2xl text-slate-500 hover:text-primary transition-all active:scale-90 outline-none"><Settings2 size={20} /></button>
+              
               <button onClick={toggleMonthly} disabled={saving} className={`flex-1 h-12 rounded-2xl flex items-center justify-center transition-all outline-none active:scale-90 shadow-lg ${player.mensalidade_paga ? 'bg-emerald-500 text-slate-900 border-none' : 'bg-slate-950 text-rose-500 border border-rose-500/20 animate-pulse'}`}>
                 {saving ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={22} />}
               </button>
-              <button onClick={() => setShowExtra(!showExtra)} className={`flex-1 h-12 rounded-2xl flex items-center justify-center transition-all outline-none active:scale-90 ${showExtra ? 'bg-primary text-slate-900 border-none shadow-[0_0_20px_rgba(255,200,0,0.3)]' : 'bg-slate-950 border border-primary/20 text-primary'}`}><PlusCircle size={22} /></button>
+              
+              <button onClick={() => isAdmin && setShowExtra(!showExtra)} className={`flex-1 h-12 rounded-2xl flex items-center justify-center transition-all outline-none active:scale-90 ${!isAdmin ? 'opacity-20 grayscale pointer-events-none' : ''} ${showExtra ? 'bg-primary text-slate-900 border-none shadow-[0_0_20px_rgba(255,200,0,0.3)]' : 'bg-slate-950 border border-primary/20 text-primary'}`}><PlusCircle size={22} /></button>
           </div>
 
-          {showExtra && (
+          {showExtra && isAdmin && (
             <div className="animate-in slide-in-from-top-4 duration-300 bg-primary/5 border border-primary/10 rounded-3xl p-5 w-full">
                <div className="grid grid-cols-2 gap-3 mb-3">
                   <select value={extra.motivo} onChange={e => setExtra({...extra, motivo: e.target.value})} className="bg-slate-950 border border-white/10 rounded-2xl px-3 h-12 text-[10px] font-black text-white outline-none">

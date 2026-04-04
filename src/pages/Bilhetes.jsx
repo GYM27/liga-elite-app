@@ -32,9 +32,8 @@ const BetSlip = ({ league, palpites = [] }) => {
       <div className={`flex-1 border-2 rounded-[40px] overflow-hidden transition-all duration-500 flex flex-col ${statusStyles[status]}`}>
         
         {/* Header do Bilhete */}
-        <div className={`${status === 'WON' ? 'bg-emerald-600' : status === 'LOST' ? 'bg-rose-600' : 'bg-slate-900'} text-white p-6 text-center relative transition-colors`}>
-          <div className="flex justify-between items-center mb-1">
-             <span className="text-[9px] font-black bg-black/20 px-2 py-0.5 rounded uppercase tracking-widest">Elite Ticket</span>
+        <div className={`${status === 'WON' ? 'bg-emerald-600' : status === 'LOST' ? 'bg-rose-600' : 'bg-slate-900'} text-white pt-11 pb-6 px-6 text-center relative transition-colors`}>
+          <div className="absolute top-4 right-6 items-center mb-1">
              <StatusBadge />
           </div>
           <h3 className="font-display font-black text-2xl tracking-tighter italic uppercase flex items-center justify-center gap-2">
@@ -63,7 +62,14 @@ const BetSlip = ({ league, palpites = [] }) => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-tighter italic">{p.aposta || 'TBA'}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter italic">
+                      {p.aposta || 'TBA'} 
+                      {p.jogadores?.nome && (
+                        <span className={`ml-1.5 not-italic opacity-100 border-l border-white/10 pl-1.5 ${p.resultado_individual === 'RED' ? 'text-rose-500 font-extrabold underline decoration-rose-500/30 underline-offset-4' : 'text-primary'}`}>
+                          — {p.jogadores.nome}
+                        </span>
+                      )}
+                    </p>
                     {p.resultado_individual === 'GREEN' && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>}
                   </div>
                 </div>
@@ -123,7 +129,7 @@ const Bilhetes = () => {
   const ganhoAcumulado = resNorte.earned + resSul.earned;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 space-y-10 pb-12 px-2 max-w-screen-xl mx-auto px-4 md:px-8">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 space-y-12 pb-20 px-4 max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-end px-2">
         <div>
            <h2 className="text-3xl font-display font-black text-white tracking-tight uppercase italic flex items-center gap-3">
@@ -151,7 +157,7 @@ const Bilhetes = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+      <div className="grid grid-cols-1 gap-20">
         <BetSlip league="Norte" palpites={nortePalpites} />
         <BetSlip league="Sul" palpites={sulPalpites} />
       </div>      
