@@ -17,7 +17,7 @@ export const useDashboardData = () => {
   const [data, setData] = useState({
     ranking: [], allMonthlyRankings: {}, currentWeek: 40, stats: { saldo: 0 },
     submissions: { norte: 0, sul: 0 }, loading: true, hallOfFame: { winners: [], losers: [] },
-    months: [], nortePalpites: [], sulPalpites: [], allPalpites: [], idsNorte: [], idsSul: []
+    months: [], nortePalpites: [], sulPalpites: [], allPalpites: [], idsNorte: [], idsSul: [], equipas: []
   });
 
   const fetchData = async () => {
@@ -67,6 +67,9 @@ export const useDashboardData = () => {
         }
       });
 
+      const sortedMonths = MONTH_ORDER.filter(m => allRankingsFormatted[m]);
+      const currentWeekPalpites = (allHistory || []).filter(p => Number(p.semana) === currentWeek);
+
       // Obter Pagamentos Mensais (Mensalidades)
       const currentMonthText = getMonthFromDate(new Date().toISOString());
       const { data: rawMensalidades } = await supabase.from('mensalidades').select('jogador_id, pago').eq('mes', currentMonthText);
@@ -75,12 +78,21 @@ export const useDashboardData = () => {
         return acc;
       }, {});
 
+      // Obter Saldo Real da Banca Master
+      const { data: bancaData } = await supabase.from('vista_banca_master').select('banca_total').single();
+      const saldoReal = bancaData ? Number(bancaData.banca_total) : 0;
+
+      // Obter Lista de Equipas para Autocomplete
+      const { data: rawEquipas } = await supabase.from('equipas').select('nome').order('nome');
+      const equipasSet = (rawEquipas || []).map(e => e.nome);
+
       setData({
         ranking: rankingNormalizado.map(r => ({ ...r, mensalidade_paga: !!paidMap[r.jogador_id] })),
         allMonthlyRankings: allRankingsFormatted,
         allPalpites: currentWeekPalpites,
         nortePalpites: currentWeekPalpites.filter(p => p.liga_no_momento?.toLowerCase() === 'norte'),
         sulPalpites: currentWeekPalpites.filter(p => p.liga_no_momento?.toLowerCase() === 'sul'),
+        equipas: equipasSet,
         idsNorte,
         idsSul,
         submissions: {
@@ -94,7 +106,7 @@ export const useDashboardData = () => {
         months: sortedMonths, 
         currentMonth: currentMonthText, 
         currentWeek,
-        stats: { saldo: 0 },
+        stats: { saldo: saldoReal },
         loading: false
       });
     } catch (err) {
