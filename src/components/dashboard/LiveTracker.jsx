@@ -60,10 +60,14 @@ const LeagueTrackerCard = ({ league, palpites = [], onSelect }) => {
     if (result === 'GREEN') status = 'won';
     if (result === 'RED') status = 'lost';
     
+    const playerObj = palpite.jogadores;
+    const name = Array.isArray(playerObj) ? playerObj[0]?.nome : playerObj?.nome;
+    const photo = Array.isArray(playerObj) ? playerObj[0]?.foto_url : playerObj?.foto_url;
+
     return { 
       status, 
-      playerName: palpite.jogadores?.nome,
-      pPhoto: palpite.jogadores?.foto_url,
+      playerName: name || 'Sócio',
+      pPhoto: photo,
       gameData: { ...palpite, league }
     };
   });
