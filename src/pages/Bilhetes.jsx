@@ -185,7 +185,7 @@ const Bilhetes = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-20">
         <BetSlip league="Norte" palpites={nortePalpites} isAdmin={isAdmin} onToggleStatus={handleToggle} />
         <BetSlip league="Sul" palpites={sulPalpites} isAdmin={isAdmin} onToggleStatus={handleToggle} />
       </div>      
