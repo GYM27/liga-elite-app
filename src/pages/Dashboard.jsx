@@ -6,9 +6,11 @@ import RankingTeaser from '../components/dashboard/RankingTeaser';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { ChevronRight, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEliteTime } from "../hooks/useEliteTime"; 
 
 const Dashboard = () => {
   const { nortePalpites, sulPalpites, stats, submissions, ranking, loading, currentWeek } = useDashboardData();
+  const { timeString, dayString, weekNumber,fullDateString } = useEliteTime();
 
   if (loading) {
     return (
@@ -26,12 +28,11 @@ const Dashboard = () => {
         <h2 className="text-3xl font-display font-black text-white tracking-tight leading-none mb-2 uppercase italic">
           BOA SORTE, <span className="text-primary tracking-widest">ELITE.</span>
         </h2>
-        <p className="text-slate-500 font-medium text-sm">
-          Estado das múltiplas em <span className="text-primary/80 font-bold">tempo real</span>.
-        </p>
+        
       </div>
 
       <LiveTracker norteSegments={nortePalpites} sulSegments={sulPalpites} currentWeek={currentWeek} />
+     
 
       {/* Atalho para Estatísticas Financeiras */}
       <div className="mb-8 px-4">

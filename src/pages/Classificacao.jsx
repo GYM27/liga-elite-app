@@ -37,7 +37,7 @@ const HighlightCarousel = ({ title, players = [], type = 'best', month }) => {
       {/* HEADER TITLE PILL */}
       <div className="absolute top-3 left-6">
          <span className={`text-[10px] font-black uppercase tracking-[0.3em] italic px-4 py-1 rounded-lg border ${
-           isBest ? 'bg-yellow-500 text-slate-950 border-yellow-400' : 'bg-slate-900 text-slate-500 border-white/10'
+           isBest ? 'bg-yellow-400 text-slate-950 border-yellow-400 ' : 'bg-slate-900 text-slate-500 border-white/10'
          }`}>
             {title}
          </span>
@@ -72,7 +72,7 @@ const HighlightCarousel = ({ title, players = [], type = 'best', month }) => {
                  <div className="w-full h-full flex items-center justify-center font-black text-xs uppercase italic text-slate-700">{p.nome?.substring(0,2)}</div>
                )}
             </div>
-            {isBest && <Crown size={20} className="absolute -top-4 -right-4 text-yellow-500 drop-shadow-xl rotate-12" />}
+            {isBest && <Crown size={20} className="absolute -top-2 -left-4 text-yellow-500 drop-shadow-xl rotate-12" />}
          </div>
          <p className="text-[12px] font-display font-black text-white uppercase tracking-tight italic truncate max-w-[100px] text-center">
             {p.nome?.split(' ')[0]}
@@ -156,10 +156,6 @@ const HallOfFameModal = ({ isOpen, onClose, hallOfFame }) => {
                </div>
             </div>
          </div>
-         
-         <div className="p-6 bg-slate-950/50 text-center border-t border-white/5">
-            <p className="text-[10px] font-black text-slate-700 uppercase tracking-[0.4em] italic leading-none">Consolidado Elite Bet © Época 24/25</p>
-         </div>
       </div>
     </div>
   );
@@ -200,7 +196,7 @@ const Classificacao = () => {
                <Calendar size={24} />
             </div>
             <div className="relative">
-               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic opacity-40">Período de Referência</p>
+              
                <button 
                  onClick={() => setShowDropdown(!showDropdown)}
                  className="flex items-center gap-2 group transition-all"
@@ -240,9 +236,9 @@ const Classificacao = () => {
       </div>
 
       {/* HIGHLIGHTS SYNCED WITH SELECTED MONTH */}
-      <div className="flex flex-col sm:flex-row gap-4">
-         <HighlightCarousel title="MELHOR DO MÊS 🥇" players={melhoresDoMes} type="best" month={selectedMonth} />
-         <HighlightCarousel title="PIOR DO MÊS 🏮" players={pioresDoMes} type="worst" month={selectedMonth} />
+      <div className="flex flex-col sm:flex-row gap-2">
+         <HighlightCarousel title="MELHOR DO MÊS " players={melhoresDoMes} type="best" month={selectedMonth} />
+         <HighlightCarousel title="PIOR DO MÊS" players={pioresDoMes} type="worst" month={selectedMonth} />
       </div>
 
       <div className="grid grid-cols-1 gap-14 pt-4 border-t border-white/5">

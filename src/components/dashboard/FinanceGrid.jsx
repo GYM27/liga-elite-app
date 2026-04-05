@@ -40,7 +40,7 @@ const FinanceGrid = ({ stats }) => {
         <div className="col-span-1 md:col-span-2">
           <StatCard 
             icon={Wallet} 
-            label="CAIXA TOTAL ELITE (ESTADO ATUAL)" 
+            label="CAIXA TOTAL (ESTADO ATUAL)" 
             value={`${Number(stats?.saldo || 0).toFixed(2)}€`} 
             colorClass="bg-emerald-500 text-slate-900 ring-4 ring-emerald-500/20 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
             highlight
