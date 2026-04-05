@@ -35,11 +35,21 @@ const getMonthFromDate = (dateStr) => {
   return `${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
+const getNaturalEliteWeek = () => {
+  const d = new Date();
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return weekNo + 26;
+};
+
 export const useDashboardData = () => {
   const [data, setData] = useState({
     ranking: [],
     allMonthlyRankings: {},
-    currentWeek: 40,
+    currentWeek: getNaturalEliteWeek(),
+    naturalWeek: getNaturalEliteWeek(),
     stats: { saldo: 0, totalEntradas: 0, totalSaidas: 0, transacoes: [] },
     submissions: { norte: 0, sul: 0 },
     loading: true,
@@ -55,12 +65,13 @@ export const useDashboardData = () => {
 
   const fetchData = async () => {
     try {
+      const naturalWeek = getNaturalEliteWeek();
       const { data: configData } = await supabase
         .from("config")
         .select("valor")
         .eq("chave", "semana_atual")
         .single();
-      const currentWeekNum = configData ? Number(configData.valor) : 40;
+      const currentWeekNum = configData ? Number(configData.valor) : naturalWeek;
 
       // BUSCA O RANKING E OS JOGADORES EM TEMPO REAL PARA GARANTIR SINCRONIZAÇÃO DE LIGAS
       const [{ data: rawRanking }, { data: rawPlayers }] = await Promise.all([
@@ -323,6 +334,7 @@ export const useDashboardData = () => {
         months: sortedMonths,
         currentMonth: currentMonthText,
         currentWeek: currentWeekNum,
+        naturalWeek: naturalWeek,
         stats: {
           saldo: baseBalance,
           totalEntradas: manualEntradas + totalPrizes,
@@ -330,7 +342,7 @@ export const useDashboardData = () => {
           transacoes: allBancaTransactions,
         },
         fullHistory: fullHistoryMapped,
-        availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum])].sort((a, b) => b - a),
+        availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum, naturalWeek])].sort((a, b) => b - a),
         loading: false,
       });
     } catch (err) {

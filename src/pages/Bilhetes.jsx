@@ -151,6 +151,7 @@ const Bilhetes = () => {
   const {
     fullHistory,
     currentWeek,
+    naturalWeek,
     availableWeeks,
     loading,
     updatePalpiteResult,
@@ -226,7 +227,7 @@ const Bilhetes = () => {
                 value={w}
                 className="bg-slate-900 text-white font-black py-2"
               >
-                Semana {w} {w === currentWeek ? " (ATUAL) 🔥" : ""}
+                Semana {w} {w === currentWeek ? " (ATUAL) 🔥" : w === naturalWeek ? " (NOVA) 🍃" : ""}
               </option>
             ))}
           </select>

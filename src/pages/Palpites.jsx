@@ -22,6 +22,7 @@ const Palpites = () => {
     ranking,
     fullHistory,
     currentWeek,
+    naturalWeek,
     availableWeeks,
     loading,
     fetchData,
@@ -52,8 +53,17 @@ const Palpites = () => {
   });
 
   useEffect(() => {
-    // Só define a semana atual se não houver nenhuma guardada
-    if (currentWeek && !selectedWeek) setSelectedWeek(currentWeek);
+    // Se a semana da BD for maior que a do cache, ou se não houver cache
+    // significa que já avançamos para uma semana nova e o browser tem de saltar de imediato
+    if (currentWeek) {
+      const saved = sessionStorage.getItem('elite_selected_week');
+      const savedNum = saved ? Number(saved) : null;
+      
+      if (!savedNum || savedNum < currentWeek) {
+        console.log("🚀 Sincronizando: Saltando para a nova semana oficial:", currentWeek);
+        setSelectedWeek(currentWeek);
+      }
+    }
   }, [currentWeek]);
 
   if (loading)
@@ -64,6 +74,7 @@ const Palpites = () => {
     );
 
   const viewWeek = selectedWeek || currentWeek;
+  const isSyncNeeded = naturalWeek > currentWeek;
 
   const weekPalpitesRaw = (fullHistory || []).filter(
     (p) => Number(p.semana) === Number(viewWeek),
@@ -82,7 +93,10 @@ const Palpites = () => {
       const result = await advanceWeek();
       if (result?.success) {
         alert(`Semana ${currentWeek} encerrada! 🔥\n⬆️ Promovidos: ${result.promovidos.map(p=>p.nome).join(', ') || 'Nenhum'}\n⬇️ Descidos: ${result.descidos.map(p=>p.nome).join(', ') || 'Nenhum'}`);
-        setSelectedWeek(null);
+        
+        // FORÇAR SALTO PARA A NOVA SEMANA (ex: 41)
+        const nextWeek = currentWeek + 1;
+        setSelectedWeek(nextWeek);
       }
     }
   };
@@ -134,7 +148,7 @@ const Palpites = () => {
                   value={w}
                   className="bg-slate-900 text-white font-black"
                 >
-                  Semana {w} {w === currentWeek ? " (ATUAL) 🔥" : ""}
+                  Semana {w} {w === currentWeek ? " (ATUAL) 🔥" : w === naturalWeek ? " (NOVA) 🍃" : ""}
                 </option>
               ))}
             </select>
@@ -153,6 +167,16 @@ const Palpites = () => {
             </button>
           )}
         </div>
+
+        {isSyncNeeded && (
+          <div className="mt-6 flex items-start gap-4 p-4 bg-primary/5 border border-primary/20 rounded-[24px] max-w-xs animate-pulse">
+            <AlertCircle className="text-primary shrink-0 mt-0.5" size={16} />
+            <p className="text-[10px] font-black text-primary uppercase leading-relaxed tracking-wider italic">
+              Calendário indica Semana {naturalWeek}. 
+              {isAdmin ? " Avança para fechar a S" + currentWeek + "!" : " Aguarda que o Admin feche a S" + currentWeek + "."}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mb-6 flex justify-between items-center px-2 pt-6">
