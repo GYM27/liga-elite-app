@@ -15,7 +15,7 @@ const getMonthFromDate = (dateStr) => {
 
 export const useDashboardData = () => {
   const [data, setData] = useState({
-    ranking: [], allMonthlyRankings: {}, currentWeek: 40, stats: { saldo: 0 },
+    ranking: [], allMonthlyRankings: {}, currentWeek: 40, stats: { saldo: 0, totalEntradas: 0, totalSaidas: 0, transacoes: [] },
     submissions: { norte: 0, sul: 0 }, loading: true, hallOfFame: { winners: [], losers: [] },
     months: [], nortePalpites: [], sulPalpites: [], allPalpites: [], idsNorte: [], idsSul: [], equipas: []
   });
@@ -23,7 +23,7 @@ export const useDashboardData = () => {
   const fetchData = async () => {
     try {
       const { data: configData } = await supabase.from('config').select('valor').eq('chave', 'semana_atual').single();
-      const currentWeek = configData ? Number(configData.valor) : 40;
+      const currentWeekNum = configData ? Number(configData.valor) : 40;
 
       const { data: rawRanking } = await supabase.from('ranking_atual').select('*');
       const rankingNormalizado = (rawRanking || []).map(p => ({
@@ -33,7 +33,6 @@ export const useDashboardData = () => {
       const idsNorte = (rankingNormalizado || []).filter(l => l.liga_atual?.toLowerCase() === 'norte').map(l => l.jogador_id);
       const idsSul = (rankingNormalizado || []).filter(l => l.liga_atual?.toLowerCase() === 'sul').map(l => l.jogador_id);
 
-      // 1. Criar Mapa de Identidades de Elite (Para evitar nomes fantasma)
       const playerMap = {};
       rankingNormalizado.forEach(p => {
         playerMap[p.jogador_id] = { nome: p.nome, foto_url: p.foto_url };
@@ -65,7 +64,6 @@ export const useDashboardData = () => {
           .sort((a, b) => b.acertos_mes - a.acertos_mes);
       });
 
-      // SÓ CONTAR MESES CONCLUÍDOS
       Object.keys(allRankingsFormatted).forEach(m => {
         if (m === currentMonthText) return;
         const players = allRankingsFormatted[m];
@@ -83,32 +81,116 @@ export const useDashboardData = () => {
 
       const sortedMonths = MONTH_ORDER.filter(m => allRankingsFormatted[m]);
       
-      // 2. Mapear Nomes para TODO o Historial (Garante Fim dos Sócios em Bilhetes)
       const fullHistoryMapped = (allHistory || []).map(p => ({
          ...p,
          jogadores: playerMap[p.jogador_id] || { nome: 'Sócio', foto_url: null }
       }));
 
-      // 3. Filtrar Semana Atual (Dashboard)
-      const currentWeekPalpites = fullHistoryMapped.filter(p => Number(p.semana) === currentWeek);
+      const currentWeekPalpites = fullHistoryMapped.filter(p => Number(p.semana) === currentWeekNum);
 
-      // Obter Pagamentos Mensais (Mensalidades)
-      const { data: rawMensalidades } = await supabase.from('mensalidades').select('jogador_id, pago').eq('mes', currentMonthText);
-      const paidMap = (rawMensalidades || []).reduce((acc, m) => {
-        acc[m.jogador_id] = m.pago;
+      // --- OBTER HISTÓRICO TOTAL DE MENSALIDADES ---
+      const { data: allPaidMensalidades } = await supabase.from('mensalidades').select('jogador_id, mes, pago').eq('pago', true);
+      const fullPaidMap = (allPaidMensalidades || []).reduce((acc, m) => {
+        if (!acc[m.jogador_id]) acc[m.jogador_id] = {};
+        acc[m.jogador_id][m.mes] = true;
         return acc;
       }, {});
 
-      // Obter Saldo Real das Partições da Banca Master
-      const { data: bancaParts, error: bError } = await supabase.from('banca_particoes').select('*');
-      const saldoReal = (bancaParts || []).reduce((acc, p) => acc + (Number(p.casa_valor || 0) + Number(p.banco_valor || 0)), 0);
+      // --- OBTER TRANSAÇÕES DA BANCA (ORDENAÇÃO SEGURA EM MEMÓRIA) ---
+      let allBancaTransactions = [];
+      try {
+        const { data: bD, error: bE } = await supabase.from('banca_transacoes').select('*');
+        
+        if (bE) console.warn('Erro na banca:', bE);
+        
+        // Ordenação robusta em memória (fallbacks para vários nomes de colunas de data)
+        allBancaTransactions = (bD || []).sort((a, b) => {
+           const dateA = new Date(a.created_at || a.data || a.id || 0);
+           const dateB = new Date(b.created_at || b.data || b.id || 0);
+           return dateA - dateB;
+        });
+      } catch (e) { console.warn('Banca Offline'); }
 
-      // Obter Lista de Equipas para Autocomplete
+      // LÓGICA DE DÍVIDA DE ELITE
+      const today = new Date();
+      const currentDay = today.getDate();
+      const currentDayOfWeek = today.getDay(); 
+      const isPast8th = currentDay > 8;
+      const isPastMonday = currentDayOfWeek === 0 || currentDayOfWeek > 1; 
+
+      const rankingComDividas = rankingNormalizado.map(r => {
+        const historyPlayer = fullPaidMap[r.jogador_id] || {};
+        const pagoMesAtual = !!historyPlayer[currentMonthText];
+        const submeteu = currentWeekPalpites.some(p => p.jogador_id === r.jogador_id);
+        const pendentes = allBancaTransactions.filter(t => t.jogador_id === r.jogador_id && t.pago === false);
+        
+        let emDivida = false;
+        let motivo = '';
+
+        if (isPast8th && !pagoMesAtual) {
+          emDivida = true;
+          motivo = 'MENSALIDADE EM FALTA';
+        }
+        if (isPastMonday && !submeteu) {
+          emDivida = (emDivida ? 'DUPLA DÍVIDA' : true);
+          motivo = (motivo ? 'MENSALIDADE + PALPITE' : 'FALTA PALPITE DA SEMANA');
+        }
+        if (pendentes.length > 0) {
+          emDivida = true;
+          motivo = (motivo ? 'DÍVIDAS ACUMULADAS' : 'MULTA PENDENTE');
+        }
+
+        return { 
+          ...r, 
+          mensalidade_paga: pagoMesAtual,
+          submeteu_palpites: submeteu,
+          em_divida: emDivida,
+          motivo_divida: motivo,
+          historico_mensalidades: historyPlayer,
+          dividas_pendentes: pendentes
+        };
+      });
+
+      // FINANÇAS REAIS
+      const liquidas = allBancaTransactions.filter(t => t.pago !== false);
+      const manualEntradas = liquidas.filter(t => t.tipo === 'ENTRADA' || t.tipo === 'MENSALIDADE' || t.tipo === 'PREMIO').reduce((acc, t) => acc + Number(t.valor), 0);
+      const manualSaidas = liquidas.filter(t => t.tipo === 'SAIDA' || t.tipo === 'MULTA' || t.tipo === 'LEVANTAMENTO').reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
+
+      const MONTHLY_REVENUE = 60.0;
+      const WEEKLY_STAKE = 10.0;
+      const allWeeks = [...new Set(fullHistoryMapped.map(p => Number(p.semana)))];
+      const allMonthsInHistory = [...new Set(fullHistoryMapped.map(p => getMonthFromDate(p.data_palpite)))];
+      
+      let totalStakes = allWeeks.length * WEEKLY_STAKE;
+      let totalMensalidades = allMonthsInHistory.length * MONTHLY_REVENUE;
+      
+      let totalPrizes = 0;
+      allWeeks.forEach(w => {
+        const weekP = fullHistoryMapped.filter(p => Number(p.semana) === w);
+        const norte = weekP.filter(p => p.liga_no_momento?.toLowerCase() === 'norte');
+        const sul = weekP.filter(p => p.liga_no_momento?.toLowerCase() === 'sul');
+
+        if (norte.length > 0 && norte.every(p => p.resultado_individual === 'GREEN')) {
+           const oddN = norte.reduce((acc, p) => acc * Number(p.odd || 1), 1);
+           totalPrizes += (oddN * 5.0);
+        }
+        if (sul.length > 0 && sul.every(p => p.resultado_individual === 'GREEN')) {
+           const oddS = sul.reduce((acc, p) => acc * Number(p.odd || 1), 1);
+           totalPrizes += (oddS * 5.0);
+        }
+      });
+
+      let baseBalance = 0;
+      try {
+        const { data: bancaParts } = await supabase.from('banca_particoes').select('*');
+        baseBalance = (bancaParts || []).reduce((acc, p) => acc + (Number(p.casa_valor || 0) + Number(p.banco_valor || 0)), 0);
+      } catch (e) { console.warn('Partições Offline'); }
+      
       const { data: rawEquipas } = await supabase.from('equipas').select('nome').order('nome');
       const equipasSet = (rawEquipas || []).map(e => e.nome);
 
       setData({
-        ranking: rankingNormalizado.map(r => ({ ...r, mensalidade_paga: !!paidMap[r.jogador_id] })),
+        ranking: rankingComDividas,
         allMonthlyRankings: allRankingsFormatted,
         allPalpites: currentWeekPalpites,
         nortePalpites: currentWeekPalpites.filter(p => p.liga_no_momento?.toLowerCase() === 'norte'),
@@ -126,10 +208,15 @@ export const useDashboardData = () => {
         },
         months: sortedMonths, 
         currentMonth: currentMonthText, 
-        currentWeek,
-        stats: { saldo: saldoReal },
+        currentWeek: currentWeekNum,
+        stats: { 
+          saldo: baseBalance,
+          totalEntradas: manualEntradas + totalPrizes, // RECAPE: Mensalidades agora entram via manualEntradas (Liquidadas)
+          totalSaidas: manualSaidas + totalStakes,
+          transacoes: allBancaTransactions
+        },
         fullHistory: fullHistoryMapped,
-        availableWeeks: [...new Set(fullHistoryMapped.map(p => Number(p.semana)))].sort((a,b) => b-a),
+        availableWeeks: allWeeks.sort((a,b) => b-a),
         loading: false
       });
     } catch (err) {
@@ -145,7 +232,7 @@ export const useDashboardData = () => {
       await fetchData();
       return true;
     } catch (err) {
-       console.error('Erro ao atualizar palpite:', err);
+       console.error('Erro ao atualizar:', err);
        return false;
     }
   };

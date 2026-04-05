@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { ShieldCheck, Database, RefreshCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, Database, RefreshCcw, AlertTriangle, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 const Configuracoes = () => {
+  const navigate = useNavigate();
   const { ranking, stats, currentWeek } = useDashboardData();
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,7 +34,7 @@ const Configuracoes = () => {
 
       const { error: histError } = await supabase.from('historico_epocas').insert({
         nome_epoca: "Época 2025/2026",
-        saldo_final: stats.saldo || 0,
+        saldo_final: (stats.saldo || 0),
         vencedor_norte: vencedorNorte,
         vencedor_sul: vencedorSul,
         ranking_json: ranking
@@ -71,11 +73,22 @@ const Configuracoes = () => {
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8 pb-10">
-      <div className="mb-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8 pb-10 px-2 max-w-lg mx-auto">
+      
+      {/* BOTÃO VOLTAR */}
+      <div className="pt-4">
+         <button 
+           onClick={() => navigate(-1)}
+           className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+         >
+            <ArrowLeft size={20} />
+         </button>
+      </div>
+
+      <div className="mb-6 flex items-center gap-4">
         <h2 className="text-3xl font-display font-black text-white tracking-tight uppercase italic flex items-center gap-3">
           <ShieldCheck className="text-primary" size={32} />
-          <span>Config <span className="text-primary tracking-widest">Painel Admin</span></span>
+          <span>Config <span className="text-primary tracking-widest text-xl">Elite</span></span>
         </h2>
       </div>
 
@@ -122,7 +135,6 @@ const Configuracoes = () => {
         {/* Fundo Decorativo */}
         <div className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-transparent pointer-events-none"></div>
       </section>
-
 
       {/* Info Técnica */}
       <div className="bg-slate-800/20 border border-white/5 p-6 rounded-2xl">

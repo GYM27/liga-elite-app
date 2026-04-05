@@ -44,8 +44,8 @@ const Dashboard = () => {
               <TrendingUp size={20} />
             </div>
             <div>
-              <p className="text-white font-black text-xs uppercase tracking-widest">Análise de Lucros & Estatísticas</p>
-              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic">Balanço detalhado da jornada</p>
+              <p className="text-white font-black text-xs uppercase tracking-widest italic tracking-tight">Tesouraria & Auditoria Elite</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic">Controlo de Dívidas e Caixa Real</p>
             </div>
           </div>
           <ChevronRight size={22} className="text-primary group-hover:translate-x-2 transition-transform" />
