@@ -263,13 +263,13 @@ const Estatisticas = () => {
   };
 
   const handleShareGlobalReport = () => {
-    const texto = `🏆 *LIGA DE ELITE* 🏆\n📅 *Relatório Abril 2026*\n\n✅ *PAGOS:*\n${ranking
+    const texto = ` *LIGA DE ELITE* \n📅 *Relatório Abril 2026*\n\n *PAGOS:*\n${ranking
       .filter((p) => !p.em_divida)
       .map((p) => ` • ${p.nome}`)
-      .join("\n")}\n\n🏮 *DÍVIDAS:*\n${ranking
+      .join("\n")}\n\n *DÍVIDAS:*\n${ranking
       .filter((p) => p.em_divida)
       .map((p) => ` • ${p.nome}`)
-      .join("\n")}\n\n*Comandante: Luís* 🛡️⚡`;
+      .join("\n")}\n\n ELITE 🛡️⚡`;
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
   };
 
