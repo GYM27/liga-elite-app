@@ -127,7 +127,7 @@ export const useDashboardData = () => {
         let emDivida = false;
         let motivo = '';
 
-        if (isPast8th && !pagoMesAtual) {
+        if (!pagoMesAtual) {
           emDivida = true;
           motivo = 'MENSALIDADE EM FALTA';
         }
