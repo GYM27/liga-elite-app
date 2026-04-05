@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { Trophy, Medal, Target, Crown, Calendar, ChevronDown, Award, Frown, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trophy, Medal, Target, Crown, Calendar, ChevronDown, Award, Frown, History, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, X } from 'lucide-react';
 
 const HighlightCarousel = ({ title, players = [], type = 'best', month }) => {
   const [index, setIndex] = useState(0);
@@ -161,11 +161,78 @@ const HallOfFameModal = ({ isOpen, onClose, hallOfFame }) => {
   );
 };
 
+// --- BANNER DE PROMOÇÕES / DESCIDAS ---
+const PromotionBanner = ({ lastPromotion, onDismiss }) => {
+  useEffect(() => {
+    if (!lastPromotion) return;
+    const t = setTimeout(onDismiss, 30000);
+    return () => clearTimeout(t);
+  }, [lastPromotion]);
+
+  if (!lastPromotion || (lastPromotion.promovidos.length === 0 && lastPromotion.descidos.length === 0)) return null;
+
+  return (
+    <div className="animate-in slide-in-from-top-4 fade-in duration-500 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">
+          Movimentos da Semana {lastPromotion.semana}
+        </p>
+        <button onClick={onDismiss} className="text-slate-600 hover:text-white transition-colors"><X size={16}/></button>
+      </div>
+
+      {lastPromotion.promovidos.length > 0 && (
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-[28px] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp size={16} className="text-emerald-400" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Promovidos → Liga Norte</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {lastPromotion.promovidos.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-3 py-2">
+                <div className="w-7 h-7 rounded-lg overflow-hidden border border-emerald-500/30 bg-slate-900">
+                  {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-[8px] font-black text-emerald-600">{p.nome?.substring(0,2)}</div>}
+                </div>
+                <span className="text-[10px] font-black text-emerald-400 uppercase italic">{p.nome}</span>
+                <span className="text-emerald-500">⬆️</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lastPromotion.descidos.length > 0 && (
+        <div className="bg-rose-500/5 border border-rose-500/20 rounded-[28px] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingDown size={16} className="text-rose-400" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-rose-400">Descidos → Liga Sul</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {lastPromotion.descidos.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 rounded-2xl px-3 py-2">
+                <div className="w-7 h-7 rounded-lg overflow-hidden border border-rose-500/30 bg-slate-900">
+                  {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-[8px] font-black text-rose-600">{p.nome?.substring(0,2)}</div>}
+                </div>
+                <span className="text-[10px] font-black text-rose-400 uppercase italic">{p.nome}</span>
+                <span className="text-rose-500">⬇️</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Classificacao = () => {
-  const { ranking, allMonthlyRankings, hallOfFame, months, currentMonth, idsNorte, idsSul, loading } = useDashboardData();
+  const { ranking, allMonthlyRankings, hallOfFame, months, currentMonth, idsNorte, idsSul, loading, lastPromotion } = useDashboardData();
   const [selectedMonth, setSelectedMonth] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showHallOfFame, setShowHallOfFame] = useState(false);
+  const [promotion, setPromotion] = useState(null);
+
+  useEffect(() => {
+    if (lastPromotion) setPromotion(lastPromotion);
+  }, [lastPromotion]);
 
   useEffect(() => {
     if (currentMonth && !selectedMonth) {
@@ -240,6 +307,8 @@ const Classificacao = () => {
          <HighlightCarousel title="MELHOR DO MÊS " players={melhoresDoMes} type="best" month={selectedMonth} />
          <HighlightCarousel title="PIOR DO MÊS" players={pioresDoMes} type="worst" month={selectedMonth} />
       </div>
+
+      <PromotionBanner lastPromotion={promotion} onDismiss={() => setPromotion(null)} />
 
       <div className="grid grid-cols-1 gap-14 pt-4 border-t border-white/5">
         <section className="space-y-6">

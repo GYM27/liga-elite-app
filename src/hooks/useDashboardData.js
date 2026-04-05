@@ -62,13 +62,25 @@ export const useDashboardData = () => {
         .single();
       const currentWeekNum = configData ? Number(configData.valor) : 40;
 
-      const { data: rawRanking } = await supabase
-        .from("ranking_atual")
-        .select("*");
+      // BUSCA O RANKING E OS JOGADORES EM TEMPO REAL PARA GARANTIR SINCRONIZAÇÃO DE LIGAS
+      const [{ data: rawRanking }, { data: rawPlayers }] = await Promise.all([
+        supabase.from("ranking_atual").select("*"),
+        supabase.from("jogadores").select("id, liga_atual, nome, foto_url")
+      ]);
+
+      // Mapeamos liga_atual E foto_url reais da tabela jogadores para sobrepor cache da view
+      const playerDataMap = {};
+      (rawPlayers || []).forEach(p => {
+        playerDataMap[p.id] = { liga_atual: p.liga_atual, foto_url: p.foto_url };
+      });
+
+      // Ranking ordenado por Greens para suportar subida/descida automática
       const rankingNormalizado = (rawRanking || [])
         .map((p) => ({
           ...p,
           jogador_id: p.jogador_id || p.id,
+          liga_atual: playerDataMap[p.jogador_id || p.id]?.liga_atual || p.liga_atual,
+          foto_url: playerDataMap[p.jogador_id || p.id]?.foto_url || p.foto_url, // USA TABELA REAL
           total_greens: p.total_greens || 0,
         }))
         .sort((a, b) => Number(b.total_greens) - Number(a.total_greens));
@@ -157,7 +169,6 @@ export const useDashboardData = () => {
         (p) => Number(p.semana) === currentWeekNum,
       );
 
-      // --- OBTER HISTÓRICO TOTAL DE MENSALIDADES ---
       const { data: allPaidMensalidades } = await supabase
         .from("mensalidades")
         .select("jogador_id, mes, pago")
@@ -168,16 +179,12 @@ export const useDashboardData = () => {
         return acc;
       }, {});
 
-      // --- OBTER TRANSAÇÕES DA BANCA (ORDENAÇÃO SEGURA EM MEMÓRIA) ---
       let allBancaTransactions = [];
       try {
         const { data: bD, error: bE } = await supabase
           .from("banca_transacoes")
           .select("*");
-
         if (bE) console.warn("Erro na banca:", bE);
-
-        // Ordenação robusta em memória (fallbacks para vários nomes de colunas de data)
         allBancaTransactions = (bD || []).sort((a, b) => {
           const dateA = new Date(a.created_at || a.data || a.id || 0);
           const dateB = new Date(b.created_at || b.data || b.id || 0);
@@ -187,12 +194,10 @@ export const useDashboardData = () => {
         console.warn("Banca Offline");
       }
 
-      // LÓGICA DE DÍVIDA DE ELITE
+      // LÓGICA DE DÍVIDA: isPastMonday > 1 significa Terça-feira em diante (Segunda é livre)
       const today = new Date();
-      const currentDay = today.getDate();
       const currentDayOfWeek = today.getDay();
-      const isPast8th = currentDay > 8;
-      const isPastMonday = currentDayOfWeek === 0 || currentDayOfWeek > 1;
+      const isPastMonday = currentDayOfWeek > 1;
 
       const rankingComDividas = rankingNormalizado.map((r) => {
         const historyPlayer = fullPaidMap[r.jogador_id] || {};
@@ -231,41 +236,22 @@ export const useDashboardData = () => {
         };
       });
 
-      // FINANÇAS REAIS
       const liquidas = allBancaTransactions.filter((t) => t.pago !== false);
       const manualEntradas = liquidas
-        .filter(
-          (t) =>
-            t.tipo === "ENTRADA" ||
-            t.tipo === "MENSALIDADE" ||
-            t.tipo === "PREMIO",
-        )
+        .filter((t) => ["ENTRADA", "MENSALIDADE", "PREMIO"].includes(t.tipo))
         .reduce((acc, t) => acc + Number(t.valor), 0);
       const manualSaidas = liquidas
-        .filter(
-          (t) =>
-            t.tipo === "SAIDA" ||
-            t.tipo === "MULTA" ||
-            t.tipo === "LEVANTAMENTO",
-        )
+        .filter((t) => ["SAIDA", "MULTA", "LEVANTAMENTO"].includes(t.tipo))
         .reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
 
-      const MONTHLY_REVENUE = 60.0; // TOTAL DO GRUPO (12 SÓCIOS X 5.00€)
       const WEEKLY_STAKE = 10.0;
-      const allWeeks = [
+      const allWeeksInHistory = [
         ...new Set(fullHistoryMapped.map((p) => Number(p.semana))),
       ];
-      const allMonthsInHistory = [
-        ...new Set(
-          fullHistoryMapped.map((p) => getMonthFromDate(p.data_palpite)),
-        ),
-      ];
-
-      let totalStakes = allWeeks.length * WEEKLY_STAKE;
-      let totalMensalidades = allMonthsInHistory.length * MONTHLY_REVENUE;
+      let totalStakes = allWeeksInHistory.length * WEEKLY_STAKE;
 
       let totalPrizes = 0;
-      allWeeks.forEach((w) => {
+      allWeeksInHistory.forEach((w) => {
         const weekP = fullHistoryMapped.filter((p) => Number(p.semana) === w);
         const norte = weekP.filter(
           (p) => p.liga_no_momento?.toLowerCase() === "norte",
@@ -278,15 +264,15 @@ export const useDashboardData = () => {
           norte.length > 0 &&
           norte.every((p) => p.resultado_individual === "GREEN")
         ) {
-          const oddN = norte.reduce((acc, p) => acc * Number(p.odd || 1), 1);
-          totalPrizes += oddN * 5.0;
+          totalPrizes +=
+            norte.reduce((acc, p) => acc * Number(p.odd || 1), 1) * 5.0;
         }
         if (
           sul.length > 0 &&
           sul.every((p) => p.resultado_individual === "GREEN")
         ) {
-          const oddS = sul.reduce((acc, p) => acc * Number(p.odd || 1), 1);
-          totalPrizes += oddS * 5.0;
+          totalPrizes +=
+            sul.reduce((acc, p) => acc * Number(p.odd || 1), 1) * 5.0;
         }
       });
 
@@ -308,7 +294,6 @@ export const useDashboardData = () => {
         .from("equipas")
         .select("nome")
         .order("nome");
-      const equipasSet = (rawEquipas || []).map((e) => e.nome);
 
       setData({
         ranking: rankingComDividas,
@@ -320,7 +305,7 @@ export const useDashboardData = () => {
         sulPalpites: currentWeekPalpites.filter(
           (p) => p.liga_no_momento?.toLowerCase() === "sul",
         ),
-        equipas: equipasSet,
+        equipas: (rawEquipas || []).map((e) => e.nome),
         idsNorte,
         idsSul,
         submissions: {
@@ -340,12 +325,12 @@ export const useDashboardData = () => {
         currentWeek: currentWeekNum,
         stats: {
           saldo: baseBalance,
-          totalEntradas: manualEntradas + totalPrizes, // RECAPE: Mensalidades agora entram via manualEntradas (Liquidadas)
+          totalEntradas: manualEntradas + totalPrizes,
           totalSaidas: manualSaidas + totalStakes,
           transacoes: allBancaTransactions,
         },
         fullHistory: fullHistoryMapped,
-        availableWeeks: allWeeks.sort((a, b) => b - a),
+        availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum])].sort((a, b) => b - a),
         loading: false,
       });
     } catch (err) {
@@ -369,9 +354,95 @@ export const useDashboardData = () => {
     }
   };
 
+  // --- AVANÇAR SEMANA COM CÁLCULO DE PROMOÇÕES/DESCIDAS ---
+  const advanceWeek = async () => {
+    try {
+      // 1. SNAPSHOT ANTES: guardar qual liga cada jogador está agora
+      const { data: freshRank } = await supabase.from("ranking_atual").select("*");
+      if (!freshRank) throw new Error("Ranking indisponível.");
+
+      const sorted = [...freshRank].sort((a, b) => Number(b.total_greens) - Number(a.total_greens));
+
+      // Mapa de liga ANTES da reorganização
+      const ligaAntes = {};
+      sorted.forEach(p => { ligaAntes[p.jogador_id] = p.liga_atual; });
+
+      // 2. Calcular nova liga por posição de greens
+      const novosStatus = sorted.map((player, index) => ({
+        id: player.jogador_id,
+        nome: player.nome,
+        foto_url: player.foto_url,
+        ligaAnterior: player.liga_atual,
+        ligaNova: index < 6 ? "Norte" : "Sul",
+      }));
+
+      // 3. Atualizar no Supabase
+      const updates = novosStatus.map(p =>
+        supabase.from("jogadores").update({ liga_atual: p.ligaNova }).eq("id", p.id)
+      );
+      const results = await Promise.all(updates);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw new Error("Erro ao atualizar posições das ligas.");
+
+      // 4. Calcular quem subiu e quem desceu
+      const promovidos = novosStatus.filter(p =>
+        p.ligaAnterior?.toLowerCase() === "sul" && p.ligaNova === "Norte"
+      );
+      const descidos = novosStatus.filter(p =>
+        p.ligaAnterior?.toLowerCase() === "norte" && p.ligaNova === "Sul"
+      );
+
+      // 5. Avançar número da semana
+      const nextWeek = data.currentWeek + 1;
+      const { error } = await supabase
+        .from("config").update({ valor: nextWeek.toString() }).eq("chave", "semana_atual");
+      if (error) throw error;
+
+      // 6. Atualizar estado com promoções/descidas
+      setData(prev => ({ ...prev, lastPromotion: { promovidos, descidos, semana: data.currentWeek } }));
+
+      await fetchData();
+      return { success: true, promovidos, descidos };
+    } catch (err) {
+      console.error("Erro ao avançar semana:", err);
+      return { success: false };
+    }
+  };
+
+  const reorganizeLigas = async () => {
+    try {
+      // Busca ranking fresco diretamente do Supabase
+      const { data: freshRank, error: rankErr } = await supabase.from("ranking_atual").select("*");
+      if (rankErr) throw rankErr;
+      if (!freshRank || freshRank.length === 0) throw new Error("Ranking vazio.");
+
+      // Ordena por greens (Top 6 → Norte, Resto → Sul)
+      const sorted = [...freshRank].sort((a, b) => Number(b.total_greens) - Number(a.total_greens));
+
+      // Atualiza liga_atual de cada jogador na tabela real
+      const updates = sorted.map((player, index) =>
+        supabase
+          .from("jogadores")
+          .update({ liga_atual: index < 6 ? "Norte" : "Sul" })
+          .eq("id", player.jogador_id || player.id)
+      );
+
+      const res = await Promise.all(updates);
+      const errors = res.filter(r => r.error);
+      if (errors.length > 0) throw new Error("Falha em " + errors.length + " updates.");
+
+      await fetchData();
+      alert("Ligas reorganizadas! 📊✅");
+      return true;
+    } catch (err) {
+      alert("Erro: " + err.message);
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  return { ...data, fetchData, updatePalpiteResult };
+  return { ...data, fetchData, updatePalpiteResult, advanceWeek, reorganizeLigas };
 };
