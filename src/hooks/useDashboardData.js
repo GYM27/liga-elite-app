@@ -83,11 +83,14 @@ export const useDashboardData = () => {
 
       const sortedMonths = MONTH_ORDER.filter(m => allRankingsFormatted[m]);
       
-      // 2. Mapear Nomes para o Dashboard de Forma Robusta
-      const currentWeekPalpites = (allHistory || []).filter(p => Number(p.semana) === currentWeek).map(p => ({
+      // 2. Mapear Nomes para TODO o Historial (Garante Fim dos Sócios em Bilhetes)
+      const fullHistoryMapped = (allHistory || []).map(p => ({
          ...p,
-         jogadores: playerMap[p.jogador_id] || { nome: 'Sócio Desconhecido', foto_url: null }
+         jogadores: playerMap[p.jogador_id] || { nome: 'Sócio', foto_url: null }
       }));
+
+      // 3. Filtrar Semana Atual (Dashboard)
+      const currentWeekPalpites = fullHistoryMapped.filter(p => Number(p.semana) === currentWeek);
 
       // Obter Pagamentos Mensais (Mensalidades)
       const { data: rawMensalidades } = await supabase.from('mensalidades').select('jogador_id, pago').eq('mes', currentMonthText);
@@ -125,6 +128,8 @@ export const useDashboardData = () => {
         currentMonth: currentMonthText, 
         currentWeek,
         stats: { saldo: saldoReal },
+        fullHistory: fullHistoryMapped,
+        availableWeeks: [...new Set(fullHistoryMapped.map(p => Number(p.semana)))].sort((a,b) => b-a),
         loading: false
       });
     } catch (err) {
@@ -133,9 +138,21 @@ export const useDashboardData = () => {
     }
   };
 
+  const updatePalpiteResult = async (id, result) => {
+    try {
+      const { error } = await supabase.from('palpites').update({ resultado_individual: result }).eq('id', id);
+      if (error) throw error;
+      await fetchData();
+      return true;
+    } catch (err) {
+       console.error('Erro ao atualizar palpite:', err);
+       return false;
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  return { ...data, fetchData };
+  return { ...data, fetchData, updatePalpiteResult };
 };

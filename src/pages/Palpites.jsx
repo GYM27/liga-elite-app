@@ -7,94 +7,112 @@ import BatchOCRModal from '../components/BatchOCRModal';
 
 const Palpites = () => {
   const { isAdmin } = useAdmin();
-  const { ranking, allPalpites, currentWeek, loading, fetchData, idsNorte = [], idsSul = [], equipas = [] } = useDashboardData();
-  const [betStatus, setBetStatus] = useState({});
+  const { ranking, fullHistory, currentWeek, availableWeeks, loading, fetchData, updatePalpiteResult, idsNorte = [], idsSul = [], equipas = [] } = useDashboardData();
+  const [selectedWeek, setSelectedWeek] = useState(null);
   const [ocrModal, setOcrModal] = useState({ open: false, league: '', players: [] });
 
   useEffect(() => {
-    const initialStatus = {};
-    (allPalpites || []).forEach(p => {
-      const nome = p.jogadores?.nome;
-      if (nome) {
-        if (p.resultado_individual === 'GREEN') initialStatus[nome] = 'G';
-        if (p.resultado_individual === 'RED') initialStatus[nome] = 'R';
-      }
-    });
-    setBetStatus(initialStatus);
-  }, [allPalpites]);
+    if (currentWeek && !selectedWeek) setSelectedWeek(currentWeek);
+  }, [currentWeek]);
 
-  const jogadoresNorte = ranking.filter(j => idsNorte.includes(j.jogador_id));
-  const jogadoresSul = ranking.filter(j => idsSul.includes(j.jogador_id));
+  if (loading) return <div className="text-white text-center mt-20 animate-pulse font-black uppercase text-xs tracking-widest text-primary italic">Auditando Registos...</div>;
 
-  const palpiteMap = (allPalpites || []).reduce((acc, p) => {
+  const viewWeek = selectedWeek || currentWeek;
+  
+  // Criar Mapa de Palpites para a Semana Selecionada
+  const weekPalpitesRaw = (fullHistory || []).filter(p => Number(p.semana) === Number(viewWeek));
+  const palpiteMap = weekPalpitesRaw.reduce((acc, p) => {
     acc[p.jogador_id] = p;
     return acc;
   }, {});
 
-  const handleBetUI = (jogadorId, nome, tipo) => {
-    if (!isAdmin) return;
-    setBetStatus(prev => ({ ...prev, [nome]: tipo }));
-  };
+  const jogadoresNorte = ranking.filter(j => idsNorte.includes(j.jogador_id));
+  const jogadoresSul = ranking.filter(j => idsSul.includes(j.jogador_id));
 
   const generateReport = () => {
-    const sortedNorte = jogadoresNorte.map(j => ({ nome: j.nome, status: betStatus[j.nome] }));
-    const sortedSul = jogadoresSul.map(j => ({ nome: j.nome, status: betStatus[j.nome] }));
-    const fmt = (list) => list.map(l => `${l.status === 'G' ? '🟢' : l.status === 'R' ? '🔴' : '🟡'} ${l.nome}`).join('\n');
-    let report = `🏆 *LIGA DE ELITE - S${currentWeek}*\n\n🔥 *NORTE:*\n${fmt(sortedNorte)}\n\n🌍 *SUL:*\n${fmt(sortedSul)}\n\n_Gerado na Elite Bet_`;
-    navigator.clipboard.writeText(report);
-    alert('Relatório semanal copiado!');
-  };
+    const fmt = (list) => list.map(j => {
+      const p = palpiteMap[j.jogador_id];
+      const res = p?.resultado_individual;
+      const icon = res === 'GREEN' ? '🟢' : res === 'RED' ? '🔴' : '🟡';
+      return `${icon} ${j.nome}`;
+    }).join('\n');
 
-  if (loading) return <div className="text-white text-center mt-20 animate-pulse font-black uppercase text-xs tracking-widest text-primary italic">Sintonizando Satélites...</div>;
+    let report = `🏆 *LIGA DE ELITE - S${viewWeek}*\n\n🔥 *NORTE:*\n${fmt(jogadoresNorte)}\n\n🌍 *SUL:*\n${fmt(jogadoresSul)}\n\n_Sincronizado via Elite Bet_`;
+    navigator.clipboard.writeText(report);
+    alert('Relatório da Semana ' + viewWeek + ' copiado!');
+  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 space-y-12 pb-10 px-2 max-w-lg mx-auto">
-      <div className="mb-6 flex justify-between items-center px-2">
-        <h2 className="text-3xl font-display font-black text-white tracking-tight uppercase italic drop-shadow-2xl">
-          Aba <span className="text-primary tracking-widest">Palpites</span>
-        </h2>
-        <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl">
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic leading-none">Semana {currentWeek}</span>
+      
+      {/* SELETOR DROPDOWN DE REGISTO */}
+      <div className="mt-10 flex flex-col items-center">
+        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4 italic">Navegador Temporal de Elite</label>
+        <div className="relative group w-full max-w-xs">
+          <select 
+            value={viewWeek} 
+            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+            className="w-full h-16 bg-slate-900 border-2 border-white/5 rounded-[24px] px-8 text-sm font-black text-white appearance-none outline-none focus:border-primary/40 transition-all cursor-pointer shadow-2xl uppercase tracking-widest text-center italic"
+          >
+            {(availableWeeks || []).map(w => (
+              <option key={w} value={w} className="bg-slate-900 text-white font-black py-2">
+                Semana {w} {w === currentWeek ? ' (ATUAL) 🔥' : ''}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-primary opacity-30 group-hover:opacity-100 transition-opacity">
+             <Clock size={18} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-6 flex justify-between items-center px-2 pt-6">
+        <div>
+           <h2 className="text-3xl font-display font-black text-white tracking-tight uppercase italic flex items-center gap-3">
+              <Clock className="text-primary" size={28} />
+              <span>Gestão <span className="text-primary tracking-widest uppercase">Palpites</span></span>
+           </h2>
+           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1 italic font-display">Semana {viewWeek} de Elite</p>
         </div>
       </div>
 
       {isAdmin && (
-        <button onClick={generateReport} className="w-full flex items-center justify-center gap-3 h-16 rounded-3xl bg-white/5 border border-white/10 text-white font-black uppercase text-[11px] tracking-[0.2em] hover:bg-white/10 transition-all shadow-2xl active:scale-95 outline-none">
-           <Share2 size={20} className="text-primary" /> Copiar Resultados WhatsApp
+        <button onClick={generateReport} className="w-full h-16 rounded-3xl bg-slate-900 border-2 border-white/5 text-white font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-950 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-2xl">
+           <Share2 size={18} className="text-primary" /> Relatório Semanal WhatsApp
         </button>
       )}
 
       <div className="space-y-16">
-        <section className="space-y-6">
+        <section className="space-y-8">
            <div className="flex justify-between items-center px-4 border-l-4 border-blue-400 py-1">
              <h3 className="text-lg font-black text-white uppercase tracking-tighter italic">Liga Norte</h3>
-             {isAdmin && (
-                <button onClick={() => setOcrModal({ open: true, league: 'Liga Norte', players: jogadoresNorte })} className="text-[10px] font-black uppercase text-blue-400 bg-blue-400/5 px-4 py-2 rounded-xl border border-blue-400/20 active:scale-90 outline-none transition-all">Importar Print</button>
+             {isAdmin && viewWeek === currentWeek && (
+                <button onClick={() => setOcrModal({ open: true, league: 'Liga Norte', players: jogadoresNorte })} className="text-[9px] font-black uppercase text-blue-400 bg-blue-400/5 px-4 py-2 rounded-xl border border-blue-400/20 transition-all active:scale-90">Importar Print</button>
              )}
            </div>
-           <div className="grid grid-cols-1 gap-6">
-             {jogadoresNorte.map((jogador, index) => (
-               <PlayerCard key={jogador.jogador_id} jogador={jogador} status={betStatus[jogador.nome]} onBet={handleBetUI} isAdmin={isAdmin} initialData={palpiteMap[jogador.jogador_id]} currentWeek={currentWeek} rank={index + 1} onComplete={fetchData} teamsPool={equipas} />
+           <div className="grid grid-cols-1 gap-8">
+             {jogadoresNorte.map((j, idx) => (
+               <PlayerCard key={j.jogador_id} jogador={j} isAdmin={isAdmin} initialData={palpiteMap[j.jogador_id]} week={viewWeek} rank={idx + 1} onComplete={fetchData} teamsPool={equipas} updateResult={updatePalpiteResult} />
              ))}
            </div>
         </section>
 
-        <section className="space-y-6 pt-6 border-t border-white/5">
+        <section className="space-y-8 pt-10 border-t border-white/5">
            <div className="flex justify-between items-center px-4 border-l-4 border-orange-400 py-1">
              <h3 className="text-lg font-black text-white uppercase tracking-tighter italic">Liga Sul</h3>
-             {isAdmin && (
-                <button onClick={() => setOcrModal({ open: true, league: 'Liga Sul', players: jogadoresSul })} className="text-[10px] font-black uppercase text-orange-400 bg-orange-400/5 px-4 py-2 rounded-xl border border-orange-400/20 active:scale-90 outline-none transition-all">Importar Print</button>
+             {isAdmin && viewWeek === currentWeek && (
+                <button onClick={() => setOcrModal({ open: true, league: 'Liga Sul', players: jogadoresSul })} className="text-[9px] font-black uppercase text-orange-400 bg-orange-400/5 px-4 py-2 rounded-xl border border-orange-400/20 transition-all active:scale-90">Importar Print</button>
              )}
            </div>
-           <div className="grid grid-cols-1 gap-6">
-             {jogadoresSul.map((jogador, index) => (
-               <PlayerCard key={jogador.jogador_id} jogador={jogador} status={betStatus[jogador.nome]} onBet={handleBetUI} isAdmin={isAdmin} initialData={palpiteMap[jogador.jogador_id]} currentWeek={currentWeek} rank={index + 7} onComplete={fetchData} teamsPool={equipas} />
+           <div className="grid grid-cols-1 gap-8">
+             {jogadoresSul.map((j, idx) => (
+               <PlayerCard key={j.jogador_id} jogador={j} isAdmin={isAdmin} initialData={palpiteMap[j.jogador_id]} week={viewWeek} rank={idx + 7} onComplete={fetchData} teamsPool={equipas} updateResult={updatePalpiteResult} />
              ))}
            </div>
         </section>
       </div>
 
-      <BatchOCRModal isOpen={ocrModal.open} onClose={() => setOcrModal({ ...ocrModal, open: false })} leagueName={ocrModal.league} players={ocrModal.players} currentWeek={currentWeek} onComplete={fetchData} existingPalpites={palpiteMap} />
+      <BatchOCRModal isOpen={ocrModal.open} onClose={() => setOcrModal({ ...ocrModal, open: false })} leagueName={ocrModal.league} players={ocrModal.players} currentWeek={viewWeek} onComplete={fetchData} existingPalpites={palpiteMap} />
     </div>
   );
 };
@@ -142,10 +160,11 @@ const TeamAutocomplete = ({ label, value, onChange, teamsPool, placeholder }) =>
   );
 };
 
-const PlayerCard = ({ jogador, status, onBet, isAdmin, initialData, currentWeek, rank, onComplete, teamsPool }) => {
+const PlayerCard = ({ jogador, isAdmin, initialData, week, rank, onComplete, teamsPool, updateResult }) => {
   const [details, setDetails] = useState({ ec: '', ef: '', ap: '', odd: '', nb: true });
   const [saving, setSaving] = useState(false);
   const isPending = !initialData;
+  const currentResult = initialData?.resultado_individual;
 
   useEffect(() => {
     if (initialData) {
@@ -153,31 +172,33 @@ const PlayerCard = ({ jogador, status, onBet, isAdmin, initialData, currentWeek,
         ec: initialData.equipa_casa || '', ef: initialData.equipa_fora || '', 
         ap: initialData.aposta || '', odd: initialData.odd || '', nb: initialData.no_bilhete ?? true 
       });
+    } else {
+      setDetails({ ec: '', ef: '', ap: '', odd: '', nb: true });
     }
-  }, [initialData]);
+  }, [initialData, week]);
 
   const saveToDB = async (novoTipo = null) => {
     if (!isAdmin) return;
     setSaving(true);
     try {
-      const finalStatus = novoTipo || (status === 'G' ? 'GREEN' : status === 'R' ? 'RED' : 'PENDENTE');
+      const finalStatus = novoTipo || (currentResult || 'PENDENTE');
       const { error } = await supabase.from('palpites').upsert({
-          jogador_id: jogador.jogador_id, semana: currentWeek, resultado_individual: finalStatus,
+          jogador_id: jogador.jogador_id, semana: week, resultado_individual: finalStatus,
           equipa_casa: details.ec, equipa_fora: details.ef, jogo: `${details.ec} vs ${details.ef}`,
           aposta: details.ap, odd: details.odd ? Number(details.odd) : null,
           data_palpite: new Date().toISOString().split('T')[0],
           liga_no_momento: rank <= 6 ? 'Norte' : 'Sul'
       }, { onConflict: 'jogador_id,semana' });
       if (error) throw error;
-      alert('Golo! Palpite Gravado! 🔥');
+      if (!novoTipo) alert('Golo! Palpite Gravado! 🔥');
       if (onComplete) await onComplete();
     } catch (err) { alert('Erro: ' + err.message); }
     finally { setSaving(false); }
   };
 
   const handleInstantBet = async (tipo) => {
-     const nextStatus = (status === tipo) ? 'PENDENTE' : (tipo === 'G' ? 'GREEN' : 'RED');
-     onBet(jogador.jogador_id, jogador.nome, (status === tipo) ? undefined : tipo);
+     const statusLetter = tipo === 'GREEN' ? 'G' : 'R';
+     const nextStatus = (currentResult === tipo) ? 'PENDENTE' : tipo;
      await saveToDB(nextStatus);
   };
 
@@ -197,8 +218,8 @@ const PlayerCard = ({ jogador, status, onBet, isAdmin, initialData, currentWeek,
            </div>
         </div>
         <div className="flex gap-2 flex-shrink-0">
-           <button onClick={() => handleInstantBet('G')} disabled={saving} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 outline-none active:scale-90 ${status === 'G' ? 'bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-950 text-emerald-500 border border-emerald-500/10'}`}><Check size={24} strokeWidth={4} /></button>
-           <button onClick={() => handleInstantBet('R')} disabled={saving} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 outline-none active:scale-90 ${status === 'R' ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-slate-950 text-rose-500 border border-rose-500/10'}`}><X size={24} strokeWidth={4} /></button>
+           <button onClick={() => handleInstantBet('GREEN')} disabled={saving} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 outline-none active:scale-90 ${currentResult === 'GREEN' ? 'bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-950 text-emerald-500 border border-emerald-500/10'}`}><Check size={24} strokeWidth={4} /></button>
+           <button onClick={() => handleInstantBet('RED')} disabled={saving} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 outline-none active:scale-90 ${currentResult === 'RED' ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-slate-950 text-rose-500 border border-rose-500/10'}`}><X size={24} strokeWidth={4} /></button>
         </div>
       </div>
 
