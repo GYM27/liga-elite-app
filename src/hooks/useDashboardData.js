@@ -156,7 +156,7 @@ export const useDashboardData = () => {
       const manualEntradas = liquidas.filter(t => t.tipo === 'ENTRADA' || t.tipo === 'MENSALIDADE' || t.tipo === 'PREMIO').reduce((acc, t) => acc + Number(t.valor), 0);
       const manualSaidas = liquidas.filter(t => t.tipo === 'SAIDA' || t.tipo === 'MULTA' || t.tipo === 'LEVANTAMENTO').reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
 
-      const MONTHLY_REVENUE = 60.0;
+      const MONTHLY_REVENUE = 60.0; // TOTAL DO GRUPO (12 SÓCIOS X 5.00€)
       const WEEKLY_STAKE = 10.0;
       const allWeeks = [...new Set(fullHistoryMapped.map(p => Number(p.semana)))];
       const allMonthsInHistory = [...new Set(fullHistoryMapped.map(p => getMonthFromDate(p.data_palpite)))];
