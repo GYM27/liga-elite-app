@@ -226,6 +226,7 @@ const Palpites = () => {
                 jogador={j}
                 isAdmin={isAdmin}
                 initialData={palpiteMap[j.jogador_id]}
+                allPalpites={weekPalpitesRaw}
                 week={viewWeek}
                 rank={idx + 1}
                 onComplete={fetchData}
@@ -263,6 +264,7 @@ const Palpites = () => {
                 jogador={j}
                 isAdmin={isAdmin}
                 initialData={palpiteMap[j.jogador_id]}
+                allPalpites={weekPalpitesRaw}
                 week={viewWeek}
                 rank={idx + 7}
                 onComplete={fetchData}
@@ -359,6 +361,7 @@ const PlayerCard = ({
   jogador,
   isAdmin,
   initialData,
+  allPalpites = [],
   week,
   rank,
   onComplete,
@@ -389,7 +392,38 @@ const PlayerCard = ({
     } else setDetails({ ec: "", ef: "", ap: "", odd: "", nb: true });
   }, [initialData, week]);
 
+  // VALIDAÇÃO DE CONFLITO / REPETIÇÃO
+  const getCollisionMessage = () => {
+    if (!details.ec || !details.ef) return null;
+    
+    const h = details.ec.trim().toLowerCase();
+    const a = details.ef.trim().toLowerCase();
+    
+    // 1. Mesmo Nome (Regra Básica)
+    if (h === a) return "Um jogo não pode ser contra a própria equipa!";
+    
+    // 2. Colisão Global (Mesmo Jogo ou Invertido)
+    const collision = allPalpites.find(p => {
+      if (p.jogador_id === jogador.jogador_id) return false;
+      const p_h = (p.equipa_casa || "").trim().toLowerCase();
+      const p_a = (p.equipa_fora || "").trim().toLowerCase();
+      return (p_h === h && p_a === a) || (p_h === a && p_a === h);
+    });
+    
+    if (collision) {
+      return `Conflito! Este jogo já foi escolhido por ${collision.jogadores?.nome || "outro sócio"}!`;
+    }
+    
+    return null;
+  };
+
+  const collisionError = getCollisionMessage();
+
   const saveToDB = async (novoTipo = null) => {
+    if (collisionError) {
+      alert(collisionError);
+      return;
+    }
     setSaving(true);
     try {
       const finalStatus = novoTipo || currentResult || "PENDENTE";
@@ -490,11 +524,21 @@ const PlayerCard = ({
           />
         </div>
       </div>
+      
+      {collisionError && (
+        <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-1">
+          <AlertCircle className="text-rose-500 shrink-0" size={14} />
+          <p className="text-[9px] font-black text-rose-500 uppercase italic leading-tight">
+            {collisionError}
+          </p>
+        </div>
+      )}
+
       {canEdit && (
         <button
           onClick={() => saveToDB()}
-          disabled={saving}
-          className="mt-6 w-full h-12 bg-primary text-slate-950 rounded-2xl font-black uppercase text-[10px] active:scale-95"
+          disabled={saving || !!collisionError}
+          className={`mt-6 w-full h-12 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all ${collisionError ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-primary text-slate-950"}`}
         >
           {saving ? "..." : "Gravar 🔥"}
         </button>
