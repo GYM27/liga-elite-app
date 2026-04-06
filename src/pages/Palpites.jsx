@@ -24,6 +24,7 @@ const Palpites = () => {
     currentWeek,
     naturalWeek,
     availableWeeks,
+    emittedMap = {},
     loading,
     fetchData,
     updatePalpiteResult,
@@ -232,6 +233,7 @@ const Palpites = () => {
                 onComplete={fetchData}
                 teamsPool={equipas}
                 updateResult={updatePalpiteResult}
+                emittedMap={emittedMap}
               />
             ))}
           </div>
@@ -270,6 +272,7 @@ const Palpites = () => {
                 onComplete={fetchData}
                 teamsPool={equipas}
                 updateResult={updatePalpiteResult}
+                emittedMap={emittedMap}
               />
             ))}
           </div>
@@ -362,6 +365,7 @@ const PlayerCard = ({
   isAdmin,
   initialData,
   allPalpites = [],
+  emittedMap = {},
   week,
   rank,
   onComplete,
@@ -378,7 +382,10 @@ const PlayerCard = ({
   const [saving, setSaving] = useState(false);
   const isPending = !initialData;
   const currentResult = initialData?.resultado_individual;
-  const canEdit = isAdmin || isPending;
+  
+  const league = rank <= 6 ? "norte" : "sul";
+  const isEmitted = emittedMap[`bilhete_emitido_${league}_${week}`];
+  const canEdit = isAdmin || (isPending && !isEmitted);
 
   useEffect(() => {
     if (initialData) {

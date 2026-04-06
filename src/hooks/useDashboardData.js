@@ -66,11 +66,10 @@ export const useDashboardData = () => {
   const fetchData = async () => {
     try {
       const naturalWeek = getNaturalEliteWeek();
-      const { data: configData } = await supabase
+      const { data: allConfigs } = await supabase
         .from("config")
-        .select("valor")
-        .eq("chave", "semana_atual")
-        .single();
+        .select("*");
+      const configData = allConfigs?.find(c => c.chave === "semana_atual");
       const currentWeekNum = configData ? Number(configData.valor) : naturalWeek;
 
       // BUSCA O RANKING E OS JOGADORES EM TEMPO REAL PARA GARANTIR SINCRONIZAÇÃO DE LIGAS
@@ -343,11 +342,52 @@ export const useDashboardData = () => {
         },
         fullHistory: fullHistoryMapped,
         availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum, naturalWeek])].sort((a, b) => b - a),
+        emittedMap: (allConfigs || []).filter(c => c.chave.startsWith("bilhete_emitido_")).reduce((acc, c) => {
+          acc[c.chave] = c.valor === "true";
+          return acc;
+        }, {}),
         loading: false,
       });
     } catch (err) {
       console.error(err);
       setData((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const emitBet = async (week, league, amount = 5.0) => {
+    try {
+      const key = `bilhete_emitido_${league.toLowerCase()}_${week}`;
+      
+      // 1. Verificar se já existe
+      const { data: existing } = await supabase.from("config").select("valor").eq("chave", key).maybeSingle();
+      if (existing?.valor === "true") {
+        alert("Atenção: Este bilhete já foi emitido e a stake já foi descontada!");
+        return;
+      }
+
+      // 2. Descontar da CASA
+      const { data: bP } = await supabase.from("banca_particoes").select("casa_valor").eq("id", 1).maybeSingle();
+      if (bP) {
+        const newVal = (Number(bP.casa_valor) || 0) - amount;
+        const { error: upError } = await supabase.from("banca_particoes").update({ casa_valor: newVal }).eq("id", 1);
+        if (upError) throw upError;
+      }
+
+      // 3. Registar Transação
+      await supabase.from("banca_transacoes").insert([{
+        valor: amount,
+        tipo: "SAIDA",
+        descricao: `Stake Bilhete S${week} - ${league.toUpperCase()}`,
+        created_at: new Date()
+      }]);
+
+      // 4. Marcar como Emitido
+      await supabase.from("config").upsert({ chave: key, valor: "true" }, { onConflict: "chave" });
+
+      await fetchData();
+      alert(`Bilhete da Liga ${league} emitido! -5,00€ descontados da CASA. 🚀💰`);
+    } catch (e) {
+      alert("Erro na emissão: " + e.message);
     }
   };
 

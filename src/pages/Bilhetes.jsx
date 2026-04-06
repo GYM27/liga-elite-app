@@ -155,6 +155,8 @@ const Bilhetes = () => {
     availableWeeks,
     loading,
     updatePalpiteResult,
+    emitBet,
+    emittedMap = {},
   } = useDashboardData();
   const { isAdmin } = useAdmin();
   const [selectedWeek, setSelectedWeek] = React.useState(null);
@@ -253,27 +255,63 @@ const Bilhetes = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-900 border-l-4 border-primary/40 p-6 rounded-[32px]">
-          <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
-            Prémio Potencial
-          </p>
-          <p className="text-3xl font-display font-black text-white italic tracking-tighter">
-            {(resNorte.potential + resSul.potential).toFixed(2)}€
-          </p>
-        </div>
-        <div
-          className={`border-l-4 p-6 rounded-[32px] transition-all duration-700 ${ganhoAcumulado > 0 ? "bg-emerald-500/10 border-emerald-500" : "bg-slate-900 border-slate-700"}`}
-        >
-          <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
-            Ganho Realizado
-          </p>
-          <p
-            className={`text-3xl font-display font-black italic tracking-tighter ${ganhoAcumulado > 0 ? "text-emerald-500" : "text-slate-500"}`}
+      <div className="flex flex-col gap-8">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-slate-900 border-l-4 border-primary/40 p-6 rounded-[32px]">
+            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
+              Prémio Potencial
+            </p>
+            <p className="text-3xl font-display font-black text-white italic tracking-tighter">
+              {(resNorte.potential + resSul.potential).toFixed(2)}€
+            </p>
+          </div>
+          <div
+            className={`border-l-4 p-6 rounded-[32px] transition-all duration-700 ${ganhoAcumulado > 0 ? "bg-emerald-500/10 border-emerald-500" : "bg-slate-900 border-slate-700"}`}
           >
-            {ganhoAcumulado.toFixed(2)}€
-          </p>
+            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
+              Ganho Realizado
+            </p>
+            <p
+              className={`text-3xl font-display font-black italic tracking-tighter ${ganhoAcumulado > 0 ? "text-emerald-500" : "text-slate-500"}`}
+            >
+              {ganhoAcumulado.toFixed(2)}€
+            </p>
+          </div>
         </div>
+
+        {/* BOTÕES DE EMISSÃO (ADMIN APENAS) */}
+        {isAdmin && (
+          <div className="grid grid-cols-2 gap-4 animate-in zoom-in-95 duration-500 p-2">
+            <div>
+              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2 text-center italic">Ação Liga Norte</p>
+              <button
+                disabled={emittedMap[`bilhete_emitido_norte_${weekToView}`]}
+                onClick={() => emitBet(weekToView, "norte")}
+                className={`w-full h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  emittedMap[`bilhete_emitido_norte_${weekToView}`] 
+                  ? "bg-slate-900 border border-white/10 text-slate-600" 
+                  : "bg-blue-600 text-white shadow-xl shadow-blue-600/20 active:scale-95"
+                }`}
+              >
+                {emittedMap[`bilhete_emitido_norte_${weekToView}`] ? "REMETIDO 🏁" : "EMITIR NORTE 🚀"}
+              </button>
+            </div>
+            <div>
+              <p className="text-[8px] font-black text-orange-400 uppercase tracking-[0.3em] mb-2 text-center italic">Ação Liga Sul</p>
+              <button
+                disabled={emittedMap[`bilhete_emitido_sul_${weekToView}`]}
+                onClick={() => emitBet(weekToView, "sul")}
+                className={`w-full h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  emittedMap[`bilhete_emitido_sul_${weekToView}`] 
+                  ? "bg-slate-900 border border-white/10 text-slate-600" 
+                  : "bg-orange-600 text-white shadow-xl shadow-orange-600/20 active:scale-95"
+                }`}
+              >
+                {emittedMap[`bilhete_emitido_sul_${weekToView}`] ? "REMETIDO 🏁" : "EMITIR SUL 🚀"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-20">
