@@ -375,9 +375,7 @@ const PlayerCard = ({
   const [saving, setSaving] = useState(false);
   const isPending = !initialData;
   const currentResult = initialData?.resultado_individual;
-  const loggedUser = localStorage.getItem("user_name") || "";
-  const isOwner = loggedUser.toLowerCase() === jogador.nome.toLowerCase();
-  const canEdit = isAdmin || (isOwner && isPending);
+  const canEdit = isAdmin || isPending;
 
   useEffect(() => {
     if (initialData) {
