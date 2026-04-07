@@ -26,7 +26,15 @@ import { supabase } from "../lib/supabaseClient";
 
 const Estatisticas = () => {
   const navigate = useNavigate();
-  const { stats, ranking, loading, fetchData } = useDashboardData();
+  const {
+    nortePalpites,
+    sulPalpites,
+    loading,
+    fetchData,
+    currentWeek,
+    ranking,
+    stats,
+  } = useDashboardData();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -60,6 +68,51 @@ const Estatisticas = () => {
   ];
   const formattedMonthGlobal = `${monthsList[now.getMonth()]} ${now.getFullYear()}`;
 
+  const provisionWeeklyFines = async (currentRanking, week) => {
+    if (!isAdmin || !currentRanking || currentRanking.length === 0 || !week) return;
+    
+    const today = new Date();
+    if (today.getDay() < 2 && today.getDay() !== 0) return; // Só Terça (2) em diante (Domingo=0)
+
+    try {
+      // 1. Obter quais membros já têm multa nesta semana (para não duplicar)
+      const { data: multasExistentes } = await supabase
+        .from("banca_transacoes")
+        .select("jogador_id")
+        .eq("tipo", "MULTA")
+        .like("descricao", `%Atraso s${week}%`);
+      
+      const idsComMulta = new Set((multasExistentes || []).map(m => m.jogador_id));
+
+      // 2. Verificar quem não submeteu palpites
+      const { data: palpitesSemana } = await supabase
+        .from("palpites")
+        .select("jogador_id")
+        .eq("semana", week);
+      
+      const idsComPalpites = new Set((palpitesSemana || []).map(p => p.jogador_id));
+
+      const novosDevedores = currentRanking
+        .filter(p => !idsComPalpites.has(p.jogador_id) && !idsComMulta.has(p.jogador_id))
+        .map(p => ({
+          valor: 1.00,
+          tipo: "MULTA",
+          descricao: `Multa Atraso s${week}`,
+          pago: false,
+          jogador_id: p.jogador_id,
+          created_at: new Date().toISOString()
+        }));
+
+      if (novosDevedores.length > 0) {
+        console.log("🏮 Gerando multas automáticas:", novosDevedores.length);
+        await supabase.from("banca_transacoes").insert(novosDevedores);
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Erro ao provisionar multas:", err);
+    }
+  };
+
   const provisionMonthlyDebts = async (currentRanking) => {
     if (!currentRanking || currentRanking.length === 0) return;
     try {
@@ -87,8 +140,9 @@ const Estatisticas = () => {
   useEffect(() => {
     if (!loading && ranking.length > 0) {
       provisionMonthlyDebts(ranking);
+      provisionWeeklyFines(ranking, currentWeek);
     }
-  }, [loading, ranking.length]);
+  }, [loading, ranking.length, currentWeek]);
 
   const handlePayMonthly = async (player, monthLabel) => {
     if (!isAdmin) return;
@@ -100,6 +154,8 @@ const Estatisticas = () => {
           tipo: "MENSALIDADE",
           descricao: `Mensalidade ${monthLabel} - ${player.nome}`,
           jogador_id: player.jogador_id,
+          pago: true, // FIXED: Marca como liquidado na banca
+          created_at: new Date().toISOString(),
         },
       ]);
 
@@ -222,6 +278,26 @@ const Estatisticas = () => {
     }
   };
 
+  const handleDeleteDebt = async (debtId) => {
+    if (!isAdmin) return;
+    if (!window.confirm("Deseja ANULAR esta dívida/multa permanentemente?")) return;
+    
+    setStatusMsg({ t: "ANULANDO DÍVIDA...", c: "text-rose-500 animate-pulse" });
+    try {
+      const { error } = await supabase
+        .from("banca_transacoes")
+        .delete()
+        .eq("id", debtId);
+      
+      if (error) throw error;
+      
+      setStatusMsg({ t: "DÍVIDA ANULADA! 🏮🏁", c: "text-rose-500 font-bold" });
+      await fetchData();
+    } catch (err) {
+      setStatusMsg({ t: "ERRO: " + err.message, c: "text-rose-500" });
+    }
+  };
+
   const handleAddTransaction = async (e) => {
     e.preventDefault();
     if (!formData.valor || !formData.descricao) return;
@@ -234,6 +310,8 @@ const Estatisticas = () => {
           tipo: formData.tipo,
           descricao: formData.descricao,
           jogador_id: formData.jogador_id || null,
+          pago: formData.pago, // FIXED: Agora envia o estado pago/pendente correto
+          created_at: new Date().toISOString(),
         },
       ]);
       if (tError) throw tError;
@@ -498,25 +576,42 @@ const Estatisticas = () => {
                 <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] italic flex items-center gap-2 underline">
                   Pendências Elite
                 </p>
+
                 <div className="space-y-3">
                   {selectedPlayer.dividas_pendentes?.map((d) => (
-                    <button
+                    <div
                       key={d.id}
-                      onClick={() => handlePayDebt(d)}
-                      className="w-full bg-white/5 border-2 border-rose-500/30 p-5 rounded-[32px] flex justify-between items-center transition-all active:scale-95"
+                      className="w-full bg-white/5 border-2 border-rose-500/30 p-5 rounded-[32px] space-y-4"
                     >
-                      <div>
-                        <p className="text-[10px] font-black text-white uppercase italic">
-                          {d.descricao}
-                        </p>
-                        <p className="text-2xl font-display font-black text-rose-500">
-                          {Math.abs(d.valor).toFixed(2)}€
-                        </p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-black text-white uppercase italic">
+                            {d.descricao}
+                          </p>
+                          <p className="text-2xl font-display font-black text-rose-500">
+                            {Math.abs(d.valor).toFixed(2)}€
+                          </p>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteDebt(d.id)}
+                            className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90"
+                            title="Anular Multa"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
-                      <div className="bg-emerald-500 text-slate-950 h-10 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest">
-                        Pagar
-                      </div>
-                    </button>
+                      
+                      {isAdmin && (
+                        <button
+                          onClick={() => handlePayDebt(d)}
+                          className="w-full bg-emerald-500 text-slate-950 h-12 rounded-2xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                        >
+                          <Check size={16} /> PAGAR / LIQUIDAR
+                        </button>
+                      )}
+                    </div>
                   ))}
                   {MESES_EPOCA.map((m) => {
                     const isPaid = selectedPlayer.historico_mensalidades?.[m];
@@ -561,10 +656,10 @@ const Estatisticas = () => {
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
-          <div className="bg-slate-900 border-2 border-primary/20 w-full max-w-sm rounded-[40px] p-8 space-y-6 shadow-2xl relative text-left">
+          <div className="bg-slate-900 border-2 border-rose-500/20 w-full max-w-sm rounded-[40px] p-8 space-y-6 shadow-2xl relative text-left">
             <div className="flex justify-between items-center px-1">
               <h3 className="text-white font-black text-xs uppercase tracking-widest italic flex items-center gap-3">
-                <Zap size={20} className="text-primary" /> Lançamento
+                <AlertCircle size={20} className="text-rose-500" /> Lançar Multa Elite
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -573,37 +668,52 @@ const Estatisticas = () => {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleAddTransaction} className="space-y-4">
-              <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-white/5">
-                <span
-                  className={`text-[8px] font-black uppercase tracking-widest ${!formData.pago ? "text-rose-500" : "text-emerald-500"}`}
-                >
-                  {!formData.pago ? "GERAR DÍVIDA" : "RECEBIDO ✅"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, pago: !formData.pago })
-                  }
-                  className={`w-12 h-6 rounded-full relative transition-all ${formData.pago ? "bg-emerald-500" : "bg-rose-500"}`}
-                >
-                  <div
-                    className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${formData.pago ? "right-1" : "left-1"}`}
-                  ></div>
-                </button>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1 italic font-display">
-                  Vínculo Sócio
-                </p>
+            
+            <p className="text-[9px] text-slate-500 uppercase font-black px-1 italic">
+               As multas ficam pendentes no perfil do membro até serem liquidadas.
+            </p>
+
+            <form 
+             onSubmit={async (e) => {
+                e.preventDefault();
+                if (!formData.valor || !formData.descricao || !formData.jogador_id) return alert("Preenche todos os campos!");
+                setSaving(true);
+                const amount = Number(formData.valor.replace(",", "."));
+                try {
+                  const { error: tError } = await supabase.from("banca_transacoes").insert([
+                    {
+                      valor: amount,
+                      tipo: "MULTA",
+                      descricao: formData.descricao,
+                      jogador_id: formData.jogador_id,
+                      pago: false, // SEMPRE FALSO: Só soma ao banco ao liquidar no perfil
+                      created_at: new Date().toISOString(),
+                    },
+                  ]);
+                  if (tError) throw tError;
+                  
+                  setIsAddModalOpen(false);
+                  setFormData({ valor: "", tipo: "ENTRADA", descricao: "", jogador_id: "", pago: true });
+                  await fetchData();
+                  alert("Multa registada! Aparecerá no perfil do membro. 🏮🏁");
+                } catch (err) {
+                  alert(err.message);
+                } finally {
+                  setSaving(false);
+                }
+             }} 
+             className="space-y-5"
+            >
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-500 uppercase italic ml-1">Membro Infrator</p>
                 <select
                   value={formData.jogador_id}
                   onChange={(e) =>
                     setFormData({ ...formData, jogador_id: e.target.value })
                   }
-                  className="w-full h-12 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-black text-white outline-none"
+                  className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-sm font-black text-white outline-none focus:border-rose-500/30"
                 >
-                  <option value="">GERAL</option>
+                  <option value="">-- SELECIONAR MEMBRO --</option>
                   {ranking.map((p) => (
                     <option key={p.jogador_id} value={p.jogador_id}>
                       {p.nome}
@@ -611,58 +721,40 @@ const Estatisticas = () => {
                   ))}
                 </select>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1 italic font-display">
-                    Tipo
-                  </p>
-                  <select
-                    value={formData.tipo}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tipo: e.target.value })
-                    }
-                    className="w-full h-12 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-black text-white outline-none"
-                  >
-                    <option value="ENTRADA">ENTRADA</option>
-                    <option value="MULTA">MULTA</option>
-                    <option value="SAIDA">SAÍDA</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1 italic text-center font-display">
-                    Valor (€)
-                  </p>
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-500 uppercase italic ml-1 text-center">Valor (€)</p>
                   <input
                     type="text"
-                    placeholder="0,00"
+                    placeholder="1,00"
                     value={formData.valor}
                     onChange={(e) =>
                       setFormData({ ...formData, valor: e.target.value })
                     }
-                    className="w-full h-12 bg-slate-950 border border-white/10 rounded-2xl px-5 text-xl font-display font-black text-white text-center"
+                    className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-2xl font-display font-black text-white text-center focus:border-rose-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-500 uppercase italic ml-1">Motivo / Descrição</p>
+                  <input
+                    type="text"
+                    placeholder="Ex: Atraso s41"
+                    value={formData.descricao}
+                    onChange={(e) =>
+                      setFormData({ ...formData, descricao: e.target.value })
+                    }
+                    className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-4 text-[11px] font-black text-white uppercase italic focus:border-rose-500/30 outline-none"
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1 italic font-display">
-                  Descrição
-                </p>
-                <input
-                  type="text"
-                  placeholder="..."
-                  value={formData.descricao}
-                  onChange={(e) =>
-                    setFormData({ ...formData, descricao: e.target.value })
-                  }
-                  className="w-full h-12 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-black text-white uppercase italic"
-                />
-              </div>
+
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full h-14 bg-primary text-slate-950 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl shadow-primary/20"
+                className="w-full h-16 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all shadow-xl shadow-rose-500/20"
               >
-                {saving ? "..." : "CONFIRMAR 🏁"}
+                {saving ? "A LANÇAR..." : "CONFIRMAR MULTA 🏁"}
               </button>
             </form>
           </div>

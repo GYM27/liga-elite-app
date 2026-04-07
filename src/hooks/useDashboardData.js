@@ -222,17 +222,26 @@ export const useDashboardData = () => {
         let emDivida = false;
         let motivo = "";
 
-        if (!pagoMesAtual) {
+        // 1. Verificar se deve algum mês PASSADO (importante!)
+        const mesesPendentesPassados = Object.entries(historyPlayer).filter(([mes, pago]) => {
+          return pago === false && mes !== currentMonthText; // Se estiver na DB como falso e não for o mês atual
+        });
+
+        if (mesesPendentesPassados.length > 0) {
           emDivida = true;
-          motivo = "";
+          motivo = "MÊS ANTERIOR PENDENTE";
         }
-        if (isPastMonday && !submeteu) {
-          emDivida = emDivida ? "DUPLA DÍVIDA" : true;
-          motivo = motivo ? "MENSALIDADE + PALPITE" : "FALTA PALPITE DA SEMANA";
-        }
+
+        // 2. Multas/Dívidas manuais
         if (pendentes.length > 0) {
           emDivida = true;
           motivo = motivo ? "DÍVIDAS ACUMULADAS" : "MULTA PENDENTE";
+        }
+
+        // 3. Falta de palpite (da Terça-feira em diante)
+        if (isPastMonday && !submeteu) {
+          emDivida = true; // Se não pos o palpite semanal ja passa a vermelho
+          motivo = motivo ? "FALTA PALPITE + DÍVIDA" : "FALTA PALPITE DA SEMANA";
         }
 
         return {
@@ -378,7 +387,7 @@ export const useDashboardData = () => {
         valor: amount,
         tipo: "SAIDA",
         descricao: `Stake Bilhete S${week} - ${league.toUpperCase()}`,
-        created_at: new Date()
+        created_at: new Date().toISOString()
       }]);
 
       // 4. Marcar como Emitido
@@ -496,5 +505,5 @@ export const useDashboardData = () => {
     fetchData();
   }, []);
 
-  return { ...data, fetchData, updatePalpiteResult, advanceWeek, reorganizeLigas };
+  return { ...data, fetchData, updatePalpiteResult, advanceWeek, reorganizeLigas, emitBet };
 };

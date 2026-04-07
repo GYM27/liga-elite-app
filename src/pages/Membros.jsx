@@ -263,6 +263,40 @@ const MemberCard = ({
     "Abril 2026",
   ];
 
+  const handleLiquidateDebt = async (debt) => {
+    if (!isAdmin) return;
+    setStatusMsg({ t: "LIQUIDANDO DÍVIDA...", c: "text-amber-500 animate-pulse" });
+    try {
+      // 1. Marcar transação como paga
+      const { error: tErr } = await supabase
+        .from("banca_transacoes")
+        .update({ pago: true })
+        .eq("id", debt.id);
+      if (tErr) throw tErr;
+
+      // 2. Adicionar dinheiro ao banco (ja que foi liquidada)
+      const { data: bP } = await supabase
+        .from("banca_particoes")
+        .select("banco_valor")
+        .eq("id", 1)
+        .maybeSingle();
+      if (bP) {
+        await supabase
+          .from("banca_particoes")
+          .update({ banco_valor: (Number(bP.banco_valor) || 0) + Number(debt.valor) })
+          .eq("id", 1);
+      }
+
+      setStatusMsg({
+        t: "DÍVIDA LIQUIDADA! 💰✅",
+        c: "text-emerald-500 font-bold",
+      });
+      if (onComplete) onComplete();
+    } catch (err) {
+      setStatusMsg({ t: "ERRO: " + err.message, c: "text-rose-500" });
+    }
+  };
+
   const handlePay = async (month) => {
     if (!isAdmin) return;
     setStatusMsg({ t: "PROCESSANDO...", c: "text-primary animate-pulse" });
@@ -601,7 +635,37 @@ const MemberCard = ({
             )}
             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-hide py-2">
               <p className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] italic underline">
-                Pendentes
+                Dívidas / Multas Pendentes
+              </p>
+              
+              {(player.dividas_pendentes || []).length === 0 && (
+                <p className="text-[10px] text-slate-500 italic">Sem multas em aberto.</p>
+              )}
+
+              {(player.dividas_pendentes || []).map((debt) => (
+                <div
+                    key={debt.id}
+                    className="w-full bg-slate-950 border border-amber-500/20 p-5 rounded-[32px] flex justify-between items-center"
+                  >
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-white uppercase italic">
+                        {debt.descricao || "Atraso/Dívida"}
+                      </p>
+                      <p className="text-2xl font-black text-amber-500">{Number(debt.valor).toFixed(2)}€</p>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleLiquidateDebt(debt)}
+                        className="bg-amber-500 text-slate-950 h-10 px-4 rounded-xl text-[9px] font-black uppercase ml-2 active:scale-95"
+                      >
+                        LIQUIDAR
+                      </button>
+                    )}
+                </div>
+              ))}
+
+              <p className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] italic underline mt-6">
+                Mensalidades Pendentes
               </p>
               {MESES_EPOCA.map((m) => {
                 const isPaid = player.historico_mensalidades?.[m];

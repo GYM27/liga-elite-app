@@ -50,35 +50,42 @@ const BatchOCRModal = ({ isOpen, onClose, leagueName, players, currentWeek, onCo
     let detectedPrize = 0;
       // Função auxiliar para procurar um número decimal (Odd) perto da linha das equipas
     const findOddNear = (index) => {
-      const oddRegex = /(\d+[.,]\d{2})/;
-      // Procurar apenas num intervalo curto para evitar apanhar a odd global do topo
-      for (let j = -2; j <= 1; j++) {
+      const oddRegex = /(\d+([.,]\d{1,2}))/g;
+      // Procurar primeiro na própria linha, depois 2 para cima e 4 para baixo
+      const offsets = [0, -1, -2, 1, 2, 3, 4];
+      for (let j of offsets) {
         const checkIdx = index + j;
         if (checkIdx >= 0 && checkIdx < lines.length) {
           const line = lines[checkIdx];
-          // Ignorar linhas que pareçam resumos globais
-          if (line.toLowerCase().includes('seleç') || line.includes(',')) continue;
+          if (line.toLowerCase().includes('seleç') || line.toLowerCase().includes('múltipla')) continue;
           
-          const match = line.match(oddRegex);
-          if (match) return match[1].replace(',', '.');
+          const matches = line.match(oddRegex);
+          if (matches && matches.length > 0) {
+            // A odd é geralmente o ÚLTIMO número decimal da linha (ex: "Mais de 1.5 1.45")
+            const lastMatch = matches[matches.length - 1].replace(',', '.');
+            const val = parseFloat(lastMatch);
+            if (val > 1.01 && val < 100) return val.toFixed(2);
+          }
         }
       }
       return null;
     };
 
     const findPrognostic = (index, oddValue) => {
-      for (let j = -4; j <= 1; j++) {
+      for (let j = -4; j <= 3; j++) {
         const checkIdx = index + j;
         if (checkIdx >= 0 && checkIdx < lines.length) {
           const line = lines[checkIdx];
           if (
-            line.includes(' - ') || 
+            line.match(/.\s+[-–—]\s+./) || 
             line === oddValue || 
-            line.match(/^\d+[.,]\d{2}$/) ||
-            line.toLowerCase().includes('resultado final')
+            line.match(/^\d+([.,]\d+)?$/) ||
+            line.toLowerCase().includes('resultado final') ||
+            line.toLowerCase().includes('total de golos') ||
+            line.toLowerCase().includes('ambas marcam')
           ) continue;
           
-          if (line.length > 2 && line.length < 30) return line;
+          if (line.length > 2 && line.length < 35) return line;
         }
       }
       return 'Verificar print';
@@ -86,54 +93,81 @@ const BatchOCRModal = ({ isOpen, onClose, leagueName, players, currentWeek, onCo
 
     // Procurar Odd Global Primeiro para referência
     let summaryLineIndex = -1;
+    const globalOddRegex = /(\d+([.,]\d{2}))/g;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].toLowerCase().includes('seleç')) {
+      if (lines[i].toLowerCase().includes('seleç') || lines[i].toLowerCase().includes('múltipla') || lines[i].toLowerCase().includes('total')) {
         summaryLineIndex = i;
-        const allNumbers = lines[i].match(/(\d+[.,]\d{2})/g) || 
-                          (lines[i+1] && lines[i+1].match(/(\d+[.,]\d{2})/g));
+        const allNumbers = lines[i].match(globalOddRegex);
         if (allNumbers && allNumbers.length > 0) {
-          detectedGlobalOdd = Number(allNumbers[allNumbers.length - 1].replace(',', '.'));
+          // A odd global é o número no fim, ignorando a stake que costuma ser 5,00
+          const lastNum = allNumbers[allNumbers.length - 1].replace(',', '.');
+          detectedGlobalOdd = Number(lastNum);
         }
         break;
       }
     }
 
     const cleanTeamName = (name) => {
-      // Remover "Lixo" do OCR:
-      // - Números isolados nas pontas (ícones interpretados como 4, 7, etc)
-      // - Símbolos estranhos
       return name
-        .replace(/^[\d\W]\s+/, '') // Remove número ou símbolo isolado no início (ex: "4 Norwich")
-        .replace(/\s+[\d\W]$/, '') // Remove no fim
-        .replace(/[^\w\s\-\.áéíóúàèìòùâêîôûãõçÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ]/g, '') // Remove símbolos estranhos mantendo acentos
+        .replace(/\d{2}\/\d{2}\/\d{2,4}/g, '') // Remove datas
+        .replace(/\d{2}:\d{2}/g, '') // Remove horas
+        .replace(/^[\d\W]\s+/, '') 
+        .replace(/\s+[\d\W]$/, '') 
+        .replace(/[^\w\s\-\.áéíóúàèìòùâêîôûãõçÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ]/g, '') 
         .trim();
     };
 
-    for (let i = 0; i < lines.length; i++) {
-        const currentLine = lines[i];
-        
-        // Só processar apostas individuais que ocorram DEPOIS do cabeçalho de resumo
-        if (summaryLineIndex !== -1 && i <= summaryLineIndex + 1) continue;
+    const teamSeparatorRegex = /\s+[-–—]\s+/;
 
-        // Detetar Prémio Global (Geralmente no fim do print)
-        if (currentLine.toLowerCase().includes('ganhos') || currentLine.toLowerCase().includes('potenciais')) {
-          const prizeMatch = currentLine.match(/(\d+[.,]\d{2})/);
+    for (let i = 0; i < lines.length; i++) {
+        let currentLine = lines[i];
+        const lowerLine = currentLine.toLowerCase();
+
+        // 1. Capturar Prémio se estivermos numa linha de ganhos
+        if (lowerLine.includes('ganhos') || lowerLine.includes('potenciais')) {
+          const prizeMatch = currentLine.match(/(\d+([.,]\d{2}))/);
           if (prizeMatch) detectedPrize = Number(prizeMatch[1].replace(',', '.'));
+        }
+
+        // 2. BLOCKLIST: Ignorar lixo e rodapés comuns do print
+        if (
+          lowerLine.includes('seleç') || 
+          lowerLine.includes('múltipla') ||
+          lowerLine.includes('ganhos') ||
+          lowerLine.includes('potenciais') ||
+          lowerLine.includes('cas_h_out') || 
+          lowerLine.includes('cash out') ||
+          lowerLine.includes('id:') ||
+          currentLine.match(/\d{2}\/\d{2}\/\d{2,4}\s+[-–—]\s+\d{2}:\d{2}/)
+        ) {
           continue;
         }
 
-        if (currentLine.includes(' - ') && !currentLine.includes(':')) {
-          const teams = currentLine.split(' - ');
-          const odd = findOddNear(i);
-          const prognostic = findPrognostic(i, odd);
+        // Tenta detetar um jogo. Prioridade absoluta ao hífen COM espaços para evitar Saint-Étienne
+        let hasSeparator = currentLine.match(teamSeparatorRegex);
+        
+        if (hasSeparator) {
+          const teams = currentLine.split(teamSeparatorRegex);
+          let casa = cleanTeamName(teams[0]);
+          let fora = cleanTeamName(teams[1]);
 
-          bets.push({
-            equipa_casa: cleanTeamName(teams[0]),
-            equipa_fora: cleanTeamName(teams[1]),
-            aposta: prognostic,
-            odd: odd || '1.00',
-            originalText: currentLine
-          });
+          // Se a equipa fora estiver vazia (ex: "Equipa - "), tenta a linha seguinte
+          if (fora.length < 2 && lines[i+1] && !lines[i+1].includes('-')) {
+             fora = cleanTeamName(lines[i+1]);
+          }
+
+          if (casa.length > 2) {
+            const odd = findOddNear(i);
+            const prognostic = findPrognostic(i, odd);
+
+            bets.push({
+              equipa_casa: casa,
+              equipa_fora: fora || 'TBA',
+              aposta: prognostic,
+              odd: odd || '1.00',
+              originalText: currentLine
+            });
+          }
         }
     }
 

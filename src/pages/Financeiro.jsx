@@ -28,6 +28,7 @@ const Financeiro = () => {
     loading: dashLoading,
     fetchData,
     currentWeek,
+    ranking,
   } = useDashboardData();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -166,22 +167,25 @@ const Financeiro = () => {
     if (!isAdmin || !manualMovement.valor || !manualMovement.descricao) return;
     setSaving(true);
     try {
+      const val = Number(manualMovement.valor);
+
       const { error } = await supabase.from("banca_transacoes").insert([
         {
-          valor: Number(manualMovement.valor),
+          valor: val,
           tipo: manualMovement.tipo,
           descricao: manualMovement.descricao,
           pago: true,
-          created_at: new Date(),
+          created_at: new Date().toISOString(),
         },
       ]);
       if (error) throw error;
 
-      // ATUALIZAÇÃO ATIVA DO COFRE
+      // ATUALIZAÇÃO ATIVA DO COFRE (Sempre que é lançado na aba Banca)
       const novoBanco =
         manualMovement.tipo === "ENTRADA"
-          ? bases.banco + Number(manualMovement.valor)
-          : bases.banco - Number(manualMovement.valor);
+          ? bases.banco + val
+          : bases.banco - val;
+          
       await supabase
         .from("banca_particoes")
         .update({ banco_valor: novoBanco })
@@ -380,7 +384,11 @@ const Financeiro = () => {
           <button
             onClick={handleManualTransaction}
             disabled={saving}
-            className={`w-full h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${manualMovement.tipo === "ENTRADA" ? "bg-emerald-500 text-slate-950" : "bg-rose-500 text-white"}`}
+            className={`w-full h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${
+              manualMovement.tipo === "ENTRADA" 
+                ? "bg-emerald-500 text-slate-950" 
+                : "bg-rose-500 text-white"
+            }`}
           >
             {saving ? (
               <Loader2 className="animate-spin" />

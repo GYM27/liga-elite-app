@@ -15,7 +15,7 @@ const BetSlip = ({ league, palpites = [], isAdmin, onToggleStatus }) => {
 
   // Calcular Odd Global
   const oddsValidas = palpites.filter((p) => p.odd && Number(p.odd) > 0);
-  const oddGlobal = oddsValidas.reduce((acc, p) => acc * Number(p.odd), 1);
+  const oddGlobal = oddsValidas.length > 0 ? oddsValidas.reduce((acc, p) => acc * Number(p.odd), 1) : 0;
   const premioPotencial = oddGlobal * STAKE;
 
   // Determinar Estado do Bilhete
@@ -198,6 +198,8 @@ const Bilhetes = () => {
 
   const calcPrizes = (palpites) => {
     const oddsV = palpites.filter((p) => p.odd && Number(p.odd) > 0);
+    if (oddsV.length === 0) return { potential: 0, earned: 0 };
+
     const oddG = oddsV.reduce((acc, p) => acc * Number(p.odd), 1);
     const potential = oddG * 5.0;
     const isWon =
