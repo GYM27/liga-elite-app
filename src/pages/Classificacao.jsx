@@ -105,6 +105,24 @@ const Classificacao = () => {
         </div>
       </div>
 
+      {/* BOTÃO EVOLUÇÃO GLOBAL */}
+      <div className="px-1 mt-4">
+        <Link 
+          to="/evolucao"
+          className="w-full flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl hover:bg-primary/20 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/20 rounded-xl text-primary">
+              <TrendingUp size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-white font-black text-xs uppercase tracking-widest italic">Evolução Global</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 italic">Gráfico de desempenho</p>
+            </div>
+          </div>
+          <div className="text-primary font-black animate-pulse">➔</div>
+        </Link>
+      </div>
 
       {/* DESTAQUES DO MÊS ATUAL */}
       <div className="flex flex-col sm:flex-row gap-4">

@@ -15,6 +15,7 @@ import Configuracoes from './pages/Configuracoes';
 import Historico from './pages/Historico';
 import PerfilJogador from './pages/PerfilJogador';
 import MissaoJantar from './pages/MissaoJantar';
+import EvolucaoGlobal from './pages/EvolucaoGlobal';
 
 import './index.css';
 
@@ -35,6 +36,7 @@ function App() {
             <Route path="/historico" element={<Historico />} />
             <Route path="/perfil/:id" element={<PerfilJogador />} />
             <Route path="/missao" element={<MissaoJantar />} />
+            <Route path="/evolucao" element={<EvolucaoGlobal />} />
           </Routes>
         </Layout>
       </Router>

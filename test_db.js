@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-const supabase = createClient('https://hyjceicuvlydamjxpntl.supabase.co', 'sb_publishable_PrbIBLRWa8__u_cS0mCUYQ_WtKmdMMx');
-async function test() {
-  const { data, error } = await supabase.from('ranking_atual').select('*').limit(1);
-  console.log('ranking_atual', data, error);
-}
-test();
+import fs from 'fs';
+
+const config = fs.readFileSync('/Users/luis/Documents/Antigravity/Liga ELite/liga-elite-app/src/lib/supabaseClient.js', 'utf8');
+console.log(config);
