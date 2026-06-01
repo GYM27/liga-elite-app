@@ -8,7 +8,10 @@ import {
   XCircle,
   Clock,
   ShieldCheck,
+  Trophy,
+  TrendingDown,
 } from "lucide-react";
+import { EliteBadge } from "../components/ui";
 
 const BetSlip = ({ league, palpites = [], isAdmin, onToggleStatus }) => {
   const STAKE = 5.0;
@@ -59,10 +62,10 @@ const BetSlip = ({ league, palpites = [], isAdmin, onToggleStatus }) => {
               </span>
             </div>
           </div>
-          <h3 className="font-display font-black text-2xl tracking-tighter italic uppercase flex items-center justify-center gap-2">
+          {<h3 className="font-display font-black text-2xl tracking-tighter italic uppercase flex items-center justify-center gap-2">
             <ShieldCheck size={20} className="text-primary" /> LIGA{" "}
             {league.toUpperCase()}
-          </h3>
+          </h3>}
         </div>
 
         <div className="flex-1 p-6 space-y-4">
@@ -212,6 +215,39 @@ const Bilhetes = () => {
   const resSul = calcPrizes(sulPalpites);
   const ganhoAcumulado = resNorte.earned + resSul.earned;
 
+  // Determinar Estado Global da Semana
+  const checkStatus = (palpites) => {
+    const hasRed = palpites.some((p) => p.resultado_individual === "RED");
+    const allGreen = palpites.length > 0 && palpites.every((p) => p.resultado_individual === "GREEN");
+    return hasRed ? "LOST" : allGreen ? "WON" : "PENDING";
+  };
+
+  const norteStatus = checkStatus(nortePalpites);
+  const sulStatus = checkStatus(sulPalpites);
+  
+  const isWeekWon = norteStatus === "WON" || sulStatus === "WON";
+  const isWeekLost = norteStatus === "LOST" && sulStatus === "LOST";
+
+  // Calcular o estado de cada semana para o dropdown
+  const weekStatuses = (availableWeeks || []).reduce((acc, w) => {
+    const weekPalpites = (fullHistory || []).filter(p => Number(p.semana) === w);
+    const norte = weekPalpites.filter(p => p.liga_no_momento?.toLowerCase() === "norte");
+    const sul = weekPalpites.filter(p => p.liga_no_momento?.toLowerCase() === "sul");
+    
+    const nS = checkStatus(norte);
+    const sS = checkStatus(sul);
+    
+    acc[w] = (nS === "WON" || sS === "WON") ? "WON" : (nS === "LOST" && sS === "LOST") ? "LOST" : "PENDING";
+    return acc;
+  }, {});
+
+  // Calcular Estatísticas Globais de Semanas
+  const globalStats = Object.values(weekStatuses).reduce((acc, s) => {
+    if (s === "WON") acc.vitorias++;
+    if (s === "LOST") acc.derrotas++;
+    return acc;
+  }, { vitorias: 0, derrotas: 0 });
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 space-y-12 pb-20 px-4 max-w-4xl mx-auto">
       {/* SELETOR DROPDOWN DE ELITE */}
@@ -225,15 +261,19 @@ const Bilhetes = () => {
             onChange={(e) => setSelectedWeek(Number(e.target.value))}
             className="w-full h-16 bg-slate-900 border-2 border-white/5 rounded-[24px] px-8 text-sm font-black text-white appearance-none outline-none focus:border-primary/40 transition-all cursor-pointer shadow-2xl uppercase tracking-widest text-center italic"
           >
-            {(availableWeeks || []).map((w) => (
-              <option
-                key={w}
-                value={w}
-                className="bg-slate-900 text-white font-black py-2"
-              >
-                Semana {w} {w === currentWeek ? " (ATUAL) 🔥" : w === naturalWeek ? " (NOVA) 🍃" : ""}
-              </option>
-            ))}
+            {(availableWeeks || []).map((w) => {
+              const status = weekStatuses[w];
+              const indicator = status === "WON" ? "🟢" : status === "LOST" ? "🔴" : "⚪";
+              return (
+                <option
+                  key={w}
+                  value={w}
+                  className={`bg-slate-900 font-black py-2 ${status === 'WON' ? 'text-emerald-500' : status === 'LOST' ? 'text-rose-500' : 'text-white'}`}
+                >
+                  {indicator} Semana {w} {w === currentWeek ? " (ATUAL)" : ""}
+                </option>
+              );
+            })}
           </select>
           <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-primary opacity-30 group-hover:opacity-100 transition-opacity">
             <Calendar size={18} />
@@ -241,43 +281,64 @@ const Bilhetes = () => {
         </div>
       </div>
 
-      <div className="flex justify-between items-end px-2 pt-6">
-        <div>
+      <div className={`flex justify-between items-center px-8 py-10 rounded-[40px] border-2 transition-all duration-700 ${
+        isWeekWon 
+          ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.1)]" 
+          : isWeekLost 
+            ? "bg-rose-500/10 border-rose-500/30 shadow-[0_0_50px_rgba(244,63,94,0.1)]" 
+            : "bg-slate-900/40 border-white/5"
+      }`}>
+        <div className="text-left">
           <h2 className="text-3xl font-display font-black text-white tracking-tight uppercase italic flex items-center gap-3">
-            <Ticket className="text-primary" size={45} />
+            <Ticket className={isWeekWon ? "text-emerald-500" : isWeekLost ? "text-rose-500" : "text-primary"} size={45} />
             <span>
-              <span className="text-primary tracking-widest uppercase">
+              <span className={`${isWeekWon ? "text-emerald-500" : isWeekLost ? "text-rose-500" : "text-primary"} tracking-widest uppercase`}>
                 Bilhetes
               </span>
             </span>
           </h2>
-          <p className="text-[12px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1 ml-1 italic font-display">
+          <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1 ml-1 italic font-display">
             Semana {weekToView} de Registos
           </p>
         </div>
+
+        {isWeekWon && (
+          <div className="hidden sm:flex flex-col items-end">
+            <EliteBadge variant="primary" size="md" className="bg-emerald-500 text-slate-950 border-emerald-400">VITÓRIA DA ELITE 🏆</EliteBadge>
+            <p className="text-[9px] font-black text-emerald-500/60 uppercase mt-2 tracking-widest italic">Capital Injetado na Banca</p>
+          </div>
+        )}
+        {isWeekLost && (
+          <div className="hidden sm:flex flex-col items-end">
+            <EliteBadge variant="danger" size="md">DERROTA TOTAL 💀</EliteBadge>
+            <p className="text-[9px] font-black text-rose-500/60 uppercase mt-2 tracking-widest italic">Semana para Esquecer</p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-8">
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-900 border-l-4 border-primary/40 p-6 rounded-[32px]">
-            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
-              Prémio Potencial
+          <div className="bg-emerald-500/10 border-2 border-emerald-500/20 p-6 rounded-[32px] flex flex-col items-center justify-center">
+            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-2 italic">
+              Semanas Vitoriosas
             </p>
-            <p className="text-3xl font-display font-black text-white italic tracking-tighter">
-              {(resNorte.potential + resSul.potential).toFixed(2)}€
-            </p>
+            <div className="flex items-center gap-3">
+              <Trophy size={20} className="text-emerald-500" />
+              <p className="text-4xl font-display font-black text-white italic tracking-tighter">
+                {globalStats.vitorias}
+              </p>
+            </div>
           </div>
-          <div
-            className={`border-l-4 p-6 rounded-[32px] transition-all duration-700 ${ganhoAcumulado > 0 ? "bg-emerald-500/10 border-emerald-500" : "bg-slate-900 border-slate-700"}`}
-          >
-            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1 italic">
-              Ganho Realizado
+          <div className="bg-rose-500/10 border-2 border-rose-500/20 p-6 rounded-[32px] flex flex-col items-center justify-center">
+            <p className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] mb-2 italic">
+              Semanas Perdidas
             </p>
-            <p
-              className={`text-3xl font-display font-black italic tracking-tighter ${ganhoAcumulado > 0 ? "text-emerald-500" : "text-slate-500"}`}
-            >
-              {ganhoAcumulado.toFixed(2)}€
-            </p>
+            <div className="flex items-center gap-3">
+              <TrendingDown size={20} className="text-rose-500" />
+              <p className="text-4xl font-display font-black text-white italic tracking-tighter">
+                {globalStats.derrotas}
+              </p>
+            </div>
           </div>
         </div>
 

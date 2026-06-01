@@ -1,12 +1,14 @@
 import React from "react";
 import { 
   Home, PlusSquare, Wallet, PieChart, Lock, Unlock, 
-  Users, ScrollText, Trophy 
+  Users, ScrollText, Trophy, Settings 
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "../context/AdminContext";
-import { useEliteTime } from "../hooks/useEliteTime"; // Importa o teu novo hook
+import { useEliteTime } from "../hooks/useEliteTime"; 
+import { useDashboardData } from "../hooks/useDashboardData";
 import AdminModal from "./AdminModal";
+import { Share2 } from "lucide-react";
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -15,6 +17,20 @@ const Layout = ({ children }) => {
   
   // Usamos o hook para buscar os dados formatados
   const { timeString, dayString, weekNumber,fullDateString } = useEliteTime();
+  
+  // Dashboard data for the share button
+  const { ranking, promovidos, descidos } = useDashboardData();
+
+  const handleShareWhatsApp = () => {
+    const leader = ranking?.[0];
+    const promNames = promovidos?.length > 0 ? promovidos.map(p => p.nome).join(', ') : 'Ninguém';
+    const descNames = descidos?.length > 0 ? descidos.map(p => p.nome).join(', ') : 'Ninguém';
+    const leaderText = leader ? `👑 *Líder:* ${leader.nome} com ${leader.total_greens || 0} Greens` : '';
+    
+    const text = `🏆 *RESUMO DA LIGA DE ELITE* 🏆\n\n${leaderText}\n\n🚀 *Promovidos à Elite:* ${promNames}\n📉 *Despromovidos ao Sul:* ${descNames}\n\n📲 *Acede à app para submeter o próximo palpite!*`;
+    
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
 
   const navItems = [
     { icon: Home, label: "Início", path: "/" },
@@ -30,32 +46,32 @@ const Layout = ({ children }) => {
       <AdminModal />
       
       {/* Header */}
-      <header className="sticky top-0 z-50 px-6 py-4 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/5 flex justify-between items-center">
+      <header className="sticky top-0 z-50 px-3 sm:px-6 py-3 sm:py-4 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/5 flex justify-between items-center">
         <div className="flex flex-col text-left">
-          <h1 className="text-xl font-display font-bold tracking-tight text-white uppercase">
-           <span className="text- [15px] italic">Liga de Elite</span>
+          <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight text-white uppercase">
+           <span className="text-[15px] italic">Liga de Elite</span>
             {/* Numero da Semana vindo do Hook */}
             
           </h1>
 
           {/* DIA DA SEMANA + HORA vindos do Hook */}
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] font-black text-primary uppercase italic">
+          <div className="flex items-center gap-1 sm:gap-2 mt-0.5">
+            <span className="text-[8px] sm:text-[10px] font-black text-primary uppercase italic">
              {dayString}
             </span>
-             <span className="text-[10px] font-black text-primary uppercase italic">
+             <span className="text-[8px] sm:text-[10px] font-black text-primary uppercase italic">
              {fullDateString}
             </span>
             <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
-            <span className="text-[10px] font-black text-slate-500 tabular-nums tracking-widest">
+            <span className="text-[8px] sm:text-[10px] font-black text-slate-500 tabular-nums tracking-widest">
               {timeString}
             </span>
           </div>
         </div>
 
         {/* LADO DIREITO: Live e Cadeado */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <span className="text-xs font-semibold text-primary uppercase tracking-tighter">
               LIVE
@@ -63,8 +79,34 @@ const Layout = ({ children }) => {
           </div>
 
           <button
+            onClick={handleShareWhatsApp}
+            className="p-1.5 sm:p-2 rounded-full border bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all active:scale-90"
+            title="Partilhar no WhatsApp"
+          >
+            <Share2 size={16} />
+          </button>
+
+          <button
+            onClick={() => navigate("/historico")}
+            className="p-1.5 sm:p-2 rounded-full border bg-slate-800/50 border-white/10 text-slate-400 hover:text-white transition-all active:scale-90"
+            title="Museu Elite (Histórico)"
+          >
+            <Trophy size={16} />
+          </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => navigate("/configuracoes")}
+              className="p-1.5 sm:p-2 rounded-full border bg-slate-800/50 border-white/10 text-slate-400 hover:text-white transition-all active:scale-90"
+              title="Configurações Elite"
+            >
+              <Settings size={16} />
+            </button>
+          )}
+
+          <button
             onClick={() => setShowAdminModal(true)}
-            className={`p-2 rounded-full border transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-full border transition-colors ${
               isAdmin
                 ? "bg-primary/20 border-primary text-primary"
                 : "bg-white/5 border-white/10 text-slate-400 hover:text-white"

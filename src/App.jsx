@@ -12,6 +12,9 @@ import Financeiro from './pages/Financeiro';
 import Estatisticas from './pages/Estatisticas';
 import Membros from './pages/Membros';
 import Configuracoes from './pages/Configuracoes';
+import Historico from './pages/Historico';
+import PerfilJogador from './pages/PerfilJogador';
+import MissaoJantar from './pages/MissaoJantar';
 
 import './index.css';
 
@@ -29,6 +32,9 @@ function App() {
             <Route path="/estatisticas" element={<Estatisticas />} />
             <Route path="/membros" element={<Membros />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/historico" element={<Historico />} />
+            <Route path="/perfil/:id" element={<PerfilJogador />} />
+            <Route path="/missao" element={<MissaoJantar />} />
           </Routes>
         </Layout>
       </Router>

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS historico_epocas (
     data_encerramento TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Adicionar permissões de leitura pública
+-- Adicionar permissões de leitura e escrita pública
 ALTER TABLE historico_epocas ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Leitura pública Histórico" ON historico_epocas FOR SELECT USING (true);
+CREATE POLICY "Escrita pública Histórico" ON historico_epocas FOR INSERT WITH CHECK (true);

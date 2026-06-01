@@ -385,7 +385,8 @@ const PlayerCard = ({
   
   const league = rank <= 6 ? "norte" : "sul";
   const isEmitted = emittedMap[`bilhete_emitido_${league}_${week}`];
-  const canEdit = isAdmin || (isPending && !isEmitted);
+  // Qualquer pessoa pode editar a sua aposta (ou a dos outros, já que não há login) DESDE QUE o bilhete ainda não tenha sido emitido.
+  const canEdit = isAdmin || !isEmitted;
 
   useEffect(() => {
     if (initialData) {
@@ -545,9 +546,9 @@ const PlayerCard = ({
         <button
           onClick={() => saveToDB()}
           disabled={saving || !!collisionError}
-          className={`mt-6 w-full h-12 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all ${collisionError ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-primary text-slate-950"}`}
+          className={`mt-6 w-full h-12 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all ${collisionError ? "bg-slate-800 text-slate-500 cursor-not-allowed" : (initialData ? "bg-amber-500 text-slate-950" : "bg-primary text-slate-950")}`}
         >
-          {saving ? "..." : "Gravar 🔥"}
+          {saving ? "..." : (initialData ? "Atualizar ✏️" : "Gravar 🔥")}
         </button>
       )}
     </div>

@@ -2,17 +2,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const MONTH_ORDER = [
-  "Junho 2025",
-  "Julho 2025",
-  "Agosto 2025",
-  "Setembro 2025",
-  "Outubro 2025",
-  "Novembro 2025",
-  "Dezembro 2025",
-  "Janeiro 2026",
-  "Fevereiro 2026",
-  "Março 2026",
-  "Abril 2026",
+  "Junho 2026",
+  "Julho 2026",
+  "Agosto 2026",
+  "Setembro 2026",
+  "Outubro 2026",
+  "Novembro 2026",
+  "Dezembro 2026",
+  "Janeiro 2027",
+  "Fevereiro 2027",
+  "Março 2027",
+  "Abril 2027",
+  "Maio 2027",
 ];
 
 const getMonthFromDate = (dateStr) => {
@@ -209,7 +210,45 @@ export const useDashboardData = () => {
       const currentDayOfWeek = today.getDay();
       const isPastMonday = currentDayOfWeek > 1;
 
+      // --- CÁLCULO DA FORMA RECENTE ---
+      const formByPlayer = {};
+      fullHistoryMapped.forEach((p) => {
+        if (!formByPlayer[p.jogador_id]) formByPlayer[p.jogador_id] = [];
+        formByPlayer[p.jogador_id].push({
+          semana: Number(p.semana),
+          resultado: p.resultado_individual?.toUpperCase()
+        });
+      });
+      Object.keys(formByPlayer).forEach((jid) => {
+        formByPlayer[jid] = formByPlayer[jid]
+          .filter((p) => p.resultado === "GREEN" || p.resultado === "RED")
+          .sort((a, b) => b.semana - a.semana)
+          .slice(0, 5);
+      });
+
+      // --- CÁLCULO DE PROMOVIDOS E DESCIDOS ---
+      const lastWeekPalpites = fullHistoryMapped.filter(
+        (p) => Number(p.semana) === currentWeekNum - 1
+      );
+      
+      const promovidosSemana = [];
+      const descidosSemana = [];
+
+      rankingNormalizado.forEach((r) => {
+        const lastPalpite = lastWeekPalpites.find(p => p.jogador_id === r.jogador_id);
+        if (lastPalpite && lastPalpite.liga_no_momento) {
+          if (lastPalpite.liga_no_momento.toLowerCase() === "sul" && r.liga_atual.toLowerCase() === "norte") {
+            promovidosSemana.push(r);
+          } else if (lastPalpite.liga_no_momento.toLowerCase() === "norte" && r.liga_atual.toLowerCase() === "sul") {
+            descidosSemana.push(r);
+          }
+        }
+      });
+
       const rankingComDividas = rankingNormalizado.map((r) => {
+        const foiPromovido = promovidosSemana.some(p => p.jogador_id === r.jogador_id);
+        const foiDescido = descidosSemana.some(p => p.jogador_id === r.jogador_id);
+
         const historyPlayer = fullPaidMap[r.jogador_id] || {};
         const pagoMesAtual = !!historyPlayer[currentMonthText];
         const submeteu = currentWeekPalpites.some(
@@ -222,14 +261,18 @@ export const useDashboardData = () => {
         let emDivida = false;
         let motivo = "";
 
-        // 1. Verificar se deve algum mês PASSADO (importante!)
-        const mesesPendentesPassados = Object.entries(historyPlayer).filter(([mes, pago]) => {
-          return pago === false && mes !== currentMonthText; // Se estiver na DB como falso e não for o mês atual
-        });
-
-        if (mesesPendentesPassados.length > 0) {
+        // 1. Verificar se deve algum mês (incluindo o atual se não estiver pago)
+        if (!pagoMesAtual) {
           emDivida = true;
-          motivo = "MÊS ANTERIOR PENDENTE";
+          motivo = "MENSALIDADE EM FALTA";
+        } else {
+          const mesesPendentesPassados = Object.entries(historyPlayer).filter(([mes, pago]) => {
+            return pago === false && mes !== currentMonthText; 
+          });
+          if (mesesPendentesPassados.length > 0) {
+            emDivida = true;
+            motivo = "MÊS ANTERIOR PENDENTE";
+          }
         }
 
         // 2. Multas/Dívidas manuais
@@ -252,6 +295,9 @@ export const useDashboardData = () => {
           motivo_divida: motivo,
           historico_mensalidades: historyPlayer,
           dividas_pendentes: pendentes,
+          forma_recente: formByPlayer[r.jogador_id] || [],
+          foi_promovido: foiPromovido,
+          foi_descido: foiDescido,
         };
       });
 
@@ -270,6 +316,10 @@ export const useDashboardData = () => {
       let totalStakes = allWeeksInHistory.length * WEEKLY_STAKE;
 
       let totalPrizes = 0;
+      let nortePrizeTotal = 0;
+      let sulPrizeTotal = 0;
+      const playerLeagueWins = {}; // { jogador_id: vitorias_coletivas }
+
       allWeeksInHistory.forEach((w) => {
         const weekP = fullHistoryMapped.filter((p) => Number(p.semana) === w);
         const norte = weekP.filter(
@@ -279,19 +329,43 @@ export const useDashboardData = () => {
           (p) => p.liga_no_momento?.toLowerCase() === "sul",
         );
 
+        // LIGA NORTE GANHOU?
         if (
           norte.length > 0 &&
           norte.every((p) => p.resultado_individual === "GREEN")
         ) {
-          totalPrizes +=
-            norte.reduce((acc, p) => acc * Number(p.odd || 1), 1) * 5.0;
+          // Converter odd para número de forma segura (lidando com vírgulas)
+          const totalOdd = norte.reduce((acc, p) => {
+            const oddStr = String(p.odd || "1").replace(",", ".");
+            const oddNum = parseFloat(oddStr);
+            return acc * (oddNum > 0 ? oddNum : 1);
+          }, 1);
+
+          const prize = totalOdd * 5.0;
+          totalPrizes += prize;
+          nortePrizeTotal += prize;
+          norte.forEach(p => {
+            playerLeagueWins[p.jogador_id] = (playerLeagueWins[p.jogador_id] || 0) + 1;
+          });
         }
+
+        // LIGA SUL GANHOU?
         if (
           sul.length > 0 &&
           sul.every((p) => p.resultado_individual === "GREEN")
         ) {
-          totalPrizes +=
-            sul.reduce((acc, p) => acc * Number(p.odd || 1), 1) * 5.0;
+          const totalOdd = sul.reduce((acc, p) => {
+            const oddStr = String(p.odd || "1").replace(",", ".");
+            const oddNum = parseFloat(oddStr);
+            return acc * (oddNum > 0 ? oddNum : 1);
+          }, 1);
+
+          const prize = totalOdd * 5.0;
+          totalPrizes += prize;
+          sulPrizeTotal += prize;
+          sul.forEach(p => {
+            playerLeagueWins[p.jogador_id] = (playerLeagueWins[p.jogador_id] || 0) + 1;
+          });
         }
       });
 
@@ -339,6 +413,8 @@ export const useDashboardData = () => {
           winners: Object.values(winCount).sort((a, b) => b.wins - a.wins),
           losers: Object.values(winCount).sort((a, b) => b.loses - a.loses),
         },
+        promovidos: promovidosSemana,
+        descidos: descidosSemana,
         months: sortedMonths,
         currentMonth: currentMonthText,
         currentWeek: currentWeekNum,
@@ -348,9 +424,23 @@ export const useDashboardData = () => {
           totalEntradas: manualEntradas + totalPrizes,
           totalSaidas: manualSaidas + totalStakes,
           transacoes: allBancaTransactions,
+          nortePrize: nortePrizeTotal,
+          sulPrize: sulPrizeTotal,
+          leagueLucrativity: {
+            norte: nortePrizeTotal,
+            sul: sulPrizeTotal
+          }
         },
+        playerLeagueWins: Object.entries(playerLeagueWins)
+          .map(([jid, wins]) => ({
+            jogador_id: jid,
+            wins,
+            nome: playerMap[jid]?.nome || "Sócio",
+            foto_url: playerMap[jid]?.foto_url
+          }))
+          .sort((a, b) => b.wins - a.wins),
         fullHistory: fullHistoryMapped,
-        availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum, naturalWeek])].sort((a, b) => b - a),
+        availableWeeks: [...new Set([...allWeeksInHistory, currentWeekNum])].sort((a, b) => b - a),
         emittedMap: (allConfigs || []).filter(c => c.chave.startsWith("bilhete_emitido_")).reduce((acc, c) => {
           acc[c.chave] = c.valor === "true";
           return acc;
