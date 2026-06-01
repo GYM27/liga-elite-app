@@ -13,7 +13,7 @@ const MissaoJantar = () => {
     addProposta, votar, fecharVotacao, resolverApostaOficial, eliminarProposta, editarProposta
   } = useMissaoData();
 
-  const [newProp, setNewProp] = useState({ jogadorId: '', jogo: '', mercado: '', odd: '' });
+  const [newProp, setNewProp] = useState({ jogadorId: '', jogo: '', mercado: '' });
   const [voterId, setVoterId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPropId, setEditingPropId] = useState(null);
@@ -47,17 +47,18 @@ const MissaoJantar = () => {
   })).sort((a, b) => b.totalVotos - a.totalVotos);
 
   const handleAddProposta = async () => {
-    if (!newProp.jogadorId || !newProp.jogo || !newProp.mercado || !newProp.odd) return alert("Preenche tudo!");
+    if (!newProp.jogadorId || !newProp.jogo || !newProp.mercado) return alert("Preenche tudo!");
     setIsSubmitting(true);
     
+    // Mandamos sempre odd 1.0 para a base de dados para não quebrar a coluna NOT NULL
     if (editingPropId) {
-      await editarProposta(editingPropId, newProp.jogo, newProp.mercado, newProp.odd);
+      await editarProposta(editingPropId, newProp.jogo, newProp.mercado, 1.0);
       setEditingPropId(null);
     } else {
-      await addProposta(newProp.jogadorId, newProp.jogo, newProp.mercado, newProp.odd);
+      await addProposta(newProp.jogadorId, newProp.jogo, newProp.mercado, 1.0);
     }
     
-    setNewProp({ jogadorId: '', jogo: '', mercado: '', odd: '' });
+    setNewProp({ jogadorId: '', jogo: '', mercado: '' });
     setIsSubmitting(false);
   };
 
@@ -67,6 +68,13 @@ const MissaoJantar = () => {
     const success = await votar(voterId, propostaId);
     if (!success) alert("Já votaste esta semana ou ocorreu um erro.");
     setIsSubmitting(false);
+  };
+
+  const handleResolverGreen = () => {
+    const valorGanho = prompt(`A banca atual é ${campanha.banca_atual}€ e foram All-in.\nQual foi o valor TOTAL ganho/recebido da casa de apostas (ex: 15.50)?`);
+    if (valorGanho && !isNaN(valorGanho)) {
+      resolverApostaOficial(apostaOficial, 'GREEN', parseFloat(valorGanho));
+    }
   };
 
   return (
@@ -127,7 +135,6 @@ const MissaoJantar = () => {
                 <p className="text-lg font-black text-slate-950 uppercase tracking-tight leading-tight">{apostaOficial.jogo}</p>
                 <div className="flex justify-between items-end mt-2">
                   <p className="text-sm font-bold text-slate-800">{apostaOficial.mercado}</p>
-                  <p className="text-2xl font-black text-slate-950 italic">@ {apostaOficial.odd}</p>
                 </div>
               </div>
 
@@ -137,7 +144,7 @@ const MissaoJantar = () => {
                   <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">Resolução (Admin)</p>
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => resolverApostaOficial(apostaOficial, 'GREEN', (campanha.banca_atual * apostaOficial.odd).toFixed(2))}
+                      onClick={handleResolverGreen}
                       className="flex-1 bg-emerald-500 text-white h-12 rounded-xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl"
                     >
                       <Check size={16} /> Deu Green!
@@ -176,7 +183,7 @@ const MissaoJantar = () => {
               <h4 className="text-sm font-black text-white uppercase italic">{editingPropId ? "Editar Palpite" : "Sugerir Palpite"}</h4>
               {editingPropId && (
                 <button 
-                  onClick={() => { setEditingPropId(null); setNewProp({ jogadorId: '', jogo: '', mercado: '', odd: '' }); }}
+                  onClick={() => { setEditingPropId(null); setNewProp({ jogadorId: '', jogo: '', mercado: '' }); }}
                   className="ml-auto text-[10px] text-rose-500 uppercase font-black px-2 py-1 bg-rose-500/10 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"
                 >
                   Cancelar Edição
@@ -200,18 +207,11 @@ const MissaoJantar = () => {
               className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
             />
             
-            <div className="grid grid-cols-[1fr_80px] gap-2">
-              <input 
-                placeholder="Mercado (Ex: Real a ganhar)" 
-                value={newProp.mercado} onChange={e => setNewProp({...newProp, mercado: e.target.value})}
-                className="h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
-              />
-              <input 
-                placeholder="Odd" type="number" step="0.01"
-                value={newProp.odd} onChange={e => setNewProp({...newProp, odd: e.target.value})}
-                className="h-12 bg-slate-950 border border-white/10 rounded-xl px-2 text-xs font-bold text-primary text-center outline-none"
-              />
-            </div>
+            <input 
+              placeholder="Mercado (Ex: Real a ganhar)" 
+              value={newProp.mercado} onChange={e => setNewProp({...newProp, mercado: e.target.value})}
+              className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
+            />
             
             <EliteButton onClick={handleAddProposta} disabled={isSubmitting} variant="primary" className="h-12 text-xs">
               {editingPropId ? "Gravar Alterações" : "Submeter Proposta"}
@@ -246,7 +246,6 @@ const MissaoJantar = () => {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                       <p className="text-xs font-black text-white uppercase truncate">{p.jogo}</p>
-                      <span className="text-xs font-black text-primary ml-2">{p.odd}</span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-bold leading-tight">{p.mercado}</p>
                     <p className="text-[8px] font-black text-slate-600 uppercase mt-2">Por: {p.jogador?.nome}</p>
@@ -264,7 +263,7 @@ const MissaoJantar = () => {
                     <button 
                       onClick={() => {
                         setEditingPropId(p.id);
-                        setNewProp({ jogadorId: p.jogador_id, jogo: p.jogo, mercado: p.mercado, odd: p.odd });
+                        setNewProp({ jogadorId: p.jogador_id, jogo: p.jogo, mercado: p.mercado });
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       disabled={isSubmitting}
@@ -319,7 +318,6 @@ const MissaoJantar = () => {
                     <p className="text-sm font-black text-white uppercase leading-tight truncate max-w-[200px]">{hist.jogo}</p>
                     <p className="text-[10px] text-slate-400 font-bold">{hist.mercado}</p>
                   </div>
-                  <p className="text-lg font-black text-primary italic">@ {hist.odd}</p>
                 </div>
               </EliteCard>
             ))}
