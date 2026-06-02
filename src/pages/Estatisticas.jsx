@@ -27,6 +27,16 @@ const Estatisticas = () => {
   });
   const [saving, setSaving] = useState(false);
 
+  const [pauseFines, setPauseFines] = useState(() => {
+    return localStorage.getItem("pauseFines") === "true";
+  });
+
+  const togglePauseFines = () => {
+    const newValue = !pauseFines;
+    setPauseFines(newValue);
+    localStorage.setItem("pauseFines", String(newValue));
+  };
+
   const formattedMonthGlobal = getMonthLabel(new Date());
 
   // Lógica de provisionamento automático (semanal e mensal)
@@ -36,7 +46,7 @@ const Estatisticas = () => {
       
       const today = new Date();
       // Multas semanais (Terça-feira em diante)
-      if (today.getDay() >= 2 || today.getDay() === 0) {
+      if (!pauseFines && (today.getDay() >= 2 || today.getDay() === 0)) {
         try {
            const { data: multasExistentes } = await supabase.from("banca_transacoes").select("jogador_id").eq("tipo", "MULTA").like("descricao", `%Atraso s${currentWeek}%`);
            const idsComMulta = new Set((multasExistentes || []).map(m => m.jogador_id));
@@ -68,7 +78,7 @@ const Estatisticas = () => {
     };
 
     runProvisioning();
-  }, [loading, ranking.length, currentWeek]);
+  }, [loading, ranking.length, currentWeek, isAdmin, pauseFines, fetchData, formattedMonthGlobal]);
 
   const handleShareGlobalReport = () => {
     const texto = ` *LIGA DE ELITE* \n *Relatório ${formattedMonthGlobal}*\n\n *PAGOS:*\n${ranking.filter((p) => !p.em_divida).map((p) => ` • ${p.nome}`).join("\n")}\n\n *DÍVIDAS:*\n${ranking.filter((p) => p.em_divida).map((p) => ` • ${p.nome}`).join("\n")}\n\n ELITE 🛡️⚡`;
@@ -93,13 +103,25 @@ const Estatisticas = () => {
       </div>
 
       <section className="px-2 space-y-4 text-left">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-[12px] font-black text-slate-500 uppercase tracking-widest italic flex items-center gap-2">
-            <UserCheck size={22} /> MENSALIDADES
-          </h3>
-          <button onClick={handleShareGlobalReport} className="px-3 h-8 bg-white/5 border border-white/10 rounded-full text-slate-400 text-[8px] font-black uppercase tracking-widest">
-            Enviar Relatório
-          </button>
+        <div className="flex flex-col gap-3 px-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[12px] font-black text-slate-500 uppercase tracking-widest italic flex items-center gap-2">
+              <UserCheck size={22} /> MENSALIDADES
+            </h3>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button 
+                  onClick={togglePauseFines} 
+                  className={`px-3 h-8 border rounded-full text-[8px] font-black uppercase tracking-widest transition-colors ${pauseFines ? "bg-rose-500/20 border-rose-500/50 text-rose-400" : "bg-white/5 border-white/10 text-slate-400"}`}
+                >
+                  {pauseFines ? "Multas Pausadas ⏸️" : "Pausar Multas"}
+                </button>
+              )}
+              <button onClick={handleShareGlobalReport} className="px-3 h-8 bg-white/5 border border-white/10 rounded-full text-slate-400 text-[8px] font-black uppercase tracking-widest">
+                Enviar Relatório
+              </button>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {ranking.map((p) => (

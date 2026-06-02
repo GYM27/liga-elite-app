@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { ArrowLeft, Target, TrendingUp, Flame, Snowflake, Award, Zap, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Target, TrendingUp, Flame, Snowflake, Award, Zap, AlertCircle, Wallet, X, History } from 'lucide-react';
 import { EliteCard, EliteAvatar, EliteBadge, EliteButton } from '../components/ui';
+import { formatCurrency } from '../utils/formatters';
 
 const PerfilJogador = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { ranking, fullHistory, loading, currentWeek } = useDashboardData();
+  const { ranking, fullHistory, loading, currentWeek, stats: dashStats } = useDashboardData();
+  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
 
   const player = useMemo(() => ranking?.find(p => p.jogador_id === id), [ranking, id]);
   
@@ -50,6 +52,35 @@ const PerfilJogador = () => {
 
     return { totalPicks, hitRate, highestOdd, forma, currentStreak, streakType, wins, losses, voids };
   }, [fullHistory, id]);
+
+  const playerFinance = useMemo(() => {
+    if (!dashStats || !dashStats.transacoes || !id) return null;
+    
+    // Nova Época começa em Junho de 2026
+    const epocaStart = new Date("2026-06-01T00:00:00Z");
+
+    // Transações pagas deste jogador nesta época
+    const playerTransacoes = dashStats.transacoes.filter(t => 
+      t.jogador_id === id && 
+      t.pago === true &&
+      new Date(t.created_at || 0) >= epocaStart
+    );
+    
+    // Na nossa lógica, o que o jogador "investiu" na Liga é o que ele pagou de Mensalidade ou Entrada
+    // Multas também é dinheiro que ele pagou ao grupo.
+    const transacoesValidas = playerTransacoes.filter(t => ["MENSALIDADE", "MULTA", "ENTRADA"].includes(t.tipo));
+    
+    const totalInvestido = transacoesValidas.reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
+    const totalMensalidades = playerTransacoes.filter(t => t.tipo === "MENSALIDADE").reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
+    const totalMultas = playerTransacoes.filter(t => t.tipo === "MULTA").reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
+    
+    return {
+      totalInvestido,
+      totalMensalidades,
+      totalMultas,
+      historico: transacoesValidas.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    };
+  }, [dashStats, id]);
 
   if (loading || !stats) {
     return (
@@ -113,15 +144,22 @@ const PerfilJogador = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-white/5 border-t border-white/5 bg-slate-950/50">
-          <div className="p-4 flex flex-col items-center">
-            <p className="text-3xl font-black text-primary italic leading-none">{player.total_greens || 0}</p>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Total Greens</span>
+        <div className="grid grid-cols-3 divide-x divide-white/5 border-t border-white/5 bg-slate-950/50">
+          <div className="p-4 flex flex-col items-center justify-center">
+            <p className="text-xl sm:text-2xl font-black text-primary italic leading-none">{player.total_greens || 0}</p>
+            <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 text-center">Total Greens</span>
           </div>
-          <div className="p-4 flex flex-col items-center">
-            <p className="text-3xl font-black text-white italic leading-none">{stats.totalPicks}</p>
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Apostas Feitas</span>
+          <div className="p-4 flex flex-col items-center justify-center">
+            <p className="text-xl sm:text-2xl font-black text-white italic leading-none">{stats.totalPicks}</p>
+            <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 text-center">Apostas Feitas</span>
           </div>
+          <button 
+            onClick={() => setIsFinanceModalOpen(true)}
+            className="p-4 flex flex-col items-center justify-center hover:bg-white/5 transition-colors active:bg-white/10 cursor-pointer"
+          >
+            <p className="text-xl sm:text-2xl font-display font-black text-emerald-400 italic leading-none">{formatCurrency(playerFinance?.totalInvestido || 0)}</p>
+            <span className="text-[8px] sm:text-[9px] font-black text-emerald-500/70 uppercase tracking-widest mt-1 flex items-center gap-1 text-center">Investido <Wallet size={10} /></span>
+          </button>
         </div>
       </EliteCard>
 
@@ -184,6 +222,61 @@ const PerfilJogador = () => {
           })}
         </div>
       </EliteCard>
+
+      {/* MODAL DE ESTATÍSTICAS FINANCEIRAS */}
+      {isFinanceModalOpen && playerFinance && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm shadow-2xl">
+          <EliteCard className="w-full max-w-sm p-6 space-y-6 shadow-2xl relative text-left flex flex-col max-h-[80vh]" variant="default">
+            <div className="flex justify-between items-start border-b border-white/5 pb-4">
+              <div>
+                <p className="text-white font-black text-[10px] uppercase tracking-widest italic underline decoration-emerald-500 underline-offset-4 leading-loose">
+                  Estatísticas de Pagamentos
+                </p>
+                <h3 className="text-xl font-black text-white mt-1 uppercase italic truncate w-48">
+                  {player.nome}
+                </h3>
+              </div>
+              <button onClick={() => setIsFinanceModalOpen(false)} className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 shrink-0">
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex flex-col items-center justify-center text-center">
+                <p className="text-2xl font-display font-black text-emerald-400 italic">{formatCurrency(playerFinance.totalMensalidades)}</p>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1">Mensalidades</span>
+              </div>
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex flex-col items-center justify-center text-center">
+                <p className="text-2xl font-display font-black text-rose-400 italic">{formatCurrency(playerFinance.totalMultas)}</p>
+                <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1">Multas Pagas</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic flex items-center gap-2 mb-2">
+                <History size={14} /> Histórico de Pagamentos
+              </h4>
+              {playerFinance.historico.length === 0 ? (
+                <p className="text-center text-slate-500 text-xs italic font-bold">Nenhum pagamento registado.</p>
+              ) : (
+                playerFinance.historico.map(t => (
+                  <div key={t.id} className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-white uppercase italic">{t.descricao}</p>
+                      <p className="text-[8px] font-black text-slate-500 uppercase mt-0.5 tracking-widest">
+                        {new Date(t.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className={`text-sm font-black italic ${t.tipo === 'MULTA' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {formatCurrency(Math.abs(Number(t.valor)))}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </EliteCard>
+        </div>
+      )}
 
     </div>
   );

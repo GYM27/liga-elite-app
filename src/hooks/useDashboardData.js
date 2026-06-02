@@ -281,9 +281,10 @@ export const useDashboardData = () => {
           motivo = motivo ? "DÍVIDAS ACUMULADAS" : "MULTA PENDENTE";
         }
 
-        // 3. Falta de palpite (da Terça-feira em diante)
-        if (isPastMonday && !submeteu) {
-          emDivida = true; // Se não pos o palpite semanal ja passa a vermelho
+        // 3. Falta de palpite (da Terça-feira em diante, apenas se houver jogo nesta semana)
+        const temJogoEstaSemana = fullHistoryMapped.some(p => Number(p.semana) === currentWeekNum);
+        if (isPastMonday && !submeteu && temJogoEstaSemana) {
+          emDivida = true; // Se não postou o palpite semanal já passa a vermelho
           motivo = motivo ? "FALTA PALPITE + DÍVIDA" : "FALTA PALPITE DA SEMANA";
         }
 
@@ -492,11 +493,46 @@ export const useDashboardData = () => {
 
   const updatePalpiteResult = async (id, result) => {
     try {
+      const { data: pData } = await supabase.from("palpites").select("*").eq("id", id).maybeSingle();
+
       const { error } = await supabase
         .from("palpites")
         .update({ resultado_individual: result })
         .eq("id", id);
       if (error) throw error;
+
+      if (pData) {
+        const descBase = `Multa RED s${pData.semana}`;
+        
+        if (result === "RED") {
+          const { data: existingMultas } = await supabase
+            .from("banca_transacoes")
+            .select("*")
+            .eq("jogador_id", pData.jogador_id)
+            .eq("tipo", "MULTA")
+            .like("descricao", `${descBase}%`);
+            
+          if (!existingMultas || existingMultas.length === 0) {
+            await supabase.from("banca_transacoes").insert([{
+              valor: 1.0,
+              tipo: "MULTA",
+              descricao: `${descBase} (${id.slice(0,4)})`,
+              jogador_id: pData.jogador_id,
+              pago: false,
+              created_at: new Date().toISOString()
+            }]);
+          }
+        } else if (result === "GREEN" || result === "PENDENTE") {
+          await supabase
+            .from("banca_transacoes")
+            .delete()
+            .eq("jogador_id", pData.jogador_id)
+            .eq("tipo", "MULTA")
+            .like("descricao", `${descBase}%`)
+            .eq("pago", false); // Só apaga se ainda não tiver sido paga manualmente
+        }
+      }
+
       await fetchData();
       return true;
     } catch (err) {
