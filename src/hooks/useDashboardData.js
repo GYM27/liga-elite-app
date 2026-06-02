@@ -59,9 +59,9 @@ export const useDashboardData = () => {
     nortePalpites: [],
     sulPalpites: [],
     allPalpites: [],
-    idsNorte: [],
     idsSul: [],
     equipas: [],
+    pauseFines: false,
   });
 
   const fetchData = async () => {
@@ -72,6 +72,9 @@ export const useDashboardData = () => {
         .select("*");
       const configData = allConfigs?.find(c => c.chave === "semana_atual");
       const currentWeekNum = configData ? Number(configData.valor) : naturalWeek;
+      
+      const pauseFinesConfig = allConfigs?.find(c => c.chave === "pause_fines");
+      const isPauseFines = pauseFinesConfig ? pauseFinesConfig.valor === "true" : false;
 
       // BUSCA O RANKING E OS JOGADORES EM TEMPO REAL PARA GARANTIR SINCRONIZAÇÃO DE LIGAS
       const [{ data: rawRanking }, { data: rawPlayers }] = await Promise.all([
@@ -446,6 +449,7 @@ export const useDashboardData = () => {
           acc[c.chave] = c.valor === "true";
           return acc;
         }, {}),
+        pauseFines: isPauseFines,
         loading: false,
       });
     } catch (err) {
@@ -627,9 +631,20 @@ export const useDashboardData = () => {
     }
   };
 
+  const togglePauseFinesGlobal = async () => {
+    try {
+      const newValue = !data.pauseFines;
+      const { error } = await supabase.from("config").upsert({ chave: "pause_fines", valor: String(newValue) }, { onConflict: "chave" });
+      if (error) throw error;
+      setData(prev => ({ ...prev, pauseFines: newValue }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  return { ...data, fetchData, updatePalpiteResult, advanceWeek, reorganizeLigas, emitBet };
+  return { ...data, fetchData, updatePalpiteResult, advanceWeek, reorganizeLigas, emitBet, togglePauseFinesGlobal };
 };

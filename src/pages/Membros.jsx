@@ -4,8 +4,8 @@ import { useAdmin } from "../context/AdminContext";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { supabase } from "../lib/supabaseClient";
 import { UserPlus, User, RefreshCw, MessageCircle, Search, Filter, X } from "lucide-react";
-import { EliteCard, EliteButton } from "../components/ui";
-import MemberCard from "../components/shared/MemberCard";
+import { EliteCard, EliteButton, EliteAvatar } from "../components/ui";
+import MemberProfileModal from "../components/shared/MemberProfileModal";
 
 const Membros = () => {
   const { isAdmin } = useAdmin();
@@ -13,7 +13,7 @@ const Membros = () => {
     ranking, loading, fetchData, currentWeek, reorganizeLigas,
   } = useDashboardData();
   
-  const [editingId, setEditingId] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [formData, setFormData] = useState({ nome: "", foto_url: "", liga_atual: "Norte" });
   const [isAdding, setIsAdding] = useState(false);
   const location = useLocation();
@@ -28,21 +28,6 @@ const Membros = () => {
       setActiveTab('pendentes');
     }
   }, [location.search]);
-
-  const handleEdit = (player) => {
-    setEditingId(player.jogador_id);
-    setFormData({ nome: player.nome, foto_url: player.foto_url || "", liga_atual: player.liga_atual || "Norte" });
-  };
-
-  const handleSave = async (id) => {
-    try {
-      const updateData = isAdmin ? { nome: formData.nome, foto_url: formData.foto_url, liga_atual: formData.liga_atual } : { foto_url: formData.foto_url };
-      const { error } = await supabase.from("jogadores").update(updateData).eq("id", id);
-      if (error) throw error;
-      setEditingId(null);
-      fetchData();
-    } catch (err) { alert("Erro: " + err.message); }
-  };
 
   const handleAddPlayer = async () => {
     if (!formData.nome) return;
@@ -63,16 +48,23 @@ const Membros = () => {
   };
 
   const filteredRanking = useMemo(() => {
-    return (ranking || []).filter(player => {
+    const filtered = (ranking || []).filter(player => {
       const matchesSearch = player.nome.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTab = 
       activeTab === "all" || 
       (activeTab === "norte" && player.liga_atual === "Norte") ||
-      (activeTab === "sul" && player.liga_atual === "Sul") ||
-      (activeTab === "divida" && player.em_divida) ||
-      (activeTab === "pendentes" && player.mensalidade_paga === false);
+      (activeTab === "sul" && player.liga_atual === "Sul");
 
       return matchesSearch && matchesTab;
+    });
+
+    // Sort by league: Norte first, then Sul, then others
+    return filtered.sort((a, b) => {
+      const order = { "Norte": 1, "Sul": 2 };
+      const rankA = order[a.liga_atual] || 3;
+      const rankB = order[b.liga_atual] || 3;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.nome.localeCompare(b.nome);
     });
   }, [ranking, searchTerm, activeTab]);
 
@@ -131,8 +123,7 @@ const Membros = () => {
           {[
             { id: "all", label: "Todos", icon: User },
             { id: "norte", label: "Liga Norte", color: "text-blue-400" },
-            { id: "sul", label: "Liga Sul", color: "text-orange-400" },
-            { id: "divida", label: "Dívidas", color: "text-rose-500" }
+            { id: "sul", label: "Liga Sul", color: "text-orange-400" }
           ].map(tab => (
             <button
               key={tab.id}
@@ -197,24 +188,34 @@ const Membros = () => {
             <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Nenhum membro encontrado</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {filteredRanking.map((player) => (
-              <MemberCard 
+              <EliteCard 
                 key={player.jogador_id} 
-                player={player} 
-                isAdmin={isAdmin} 
-                onComplete={fetchData} 
-                isEditing={editingId === player.jogador_id} 
-                onEdit={handleEdit} 
-                onCancel={() => setEditingId(null)}
-                formData={formData}
-                setFormData={setFormData}
-                handleSave={handleSave}
-              />
+                padding="p-3" 
+                variant="default" 
+                onClick={() => setSelectedPlayer(player)} 
+                className="flex flex-col items-center hover:border-white/10 transition-colors cursor-pointer relative"
+              >
+                <div className={`absolute top-0 inset-x-0 h-1 ${player.liga_atual === 'Norte' ? 'bg-blue-500' : player.liga_atual === 'Sul' ? 'bg-orange-500' : 'bg-slate-700'}`} />
+                <EliteAvatar src={player.foto_url} name={player.nome} size="md" className="mt-2" />
+                <p className="text-[10px] font-black uppercase text-center truncate w-full italic mt-2 text-white">
+                  {player.nome.split(" ")[0]}
+                </p>
+              </EliteCard>
             ))}
           </div>
         )}
       </div>
+
+      {selectedPlayer && (
+        <MemberProfileModal 
+          player={selectedPlayer}
+          isAdmin={isAdmin}
+          onClose={() => setSelectedPlayer(null)}
+          onComplete={fetchData}
+        />
+      )}
 
     </div>
   );

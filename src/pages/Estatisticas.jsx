@@ -14,7 +14,7 @@ import { formatCurrency, getMonthLabel } from "../utils/formatters";
 const Estatisticas = () => {
   const navigate = useNavigate();
   const {
-    loading, fetchData, currentWeek, ranking, stats,
+    loading, fetchData, currentWeek, ranking, stats, pauseFines, togglePauseFinesGlobal
   } = useDashboardData();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -26,16 +26,6 @@ const Estatisticas = () => {
     valor: "", tipo: "ENTRADA", descricao: "", jogador_id: "", pago: true,
   });
   const [saving, setSaving] = useState(false);
-
-  const [pauseFines, setPauseFines] = useState(() => {
-    return localStorage.getItem("pauseFines") === "true";
-  });
-
-  const togglePauseFines = () => {
-    const newValue = !pauseFines;
-    setPauseFines(newValue);
-    localStorage.setItem("pauseFines", String(newValue));
-  };
 
   const formattedMonthGlobal = getMonthLabel(new Date());
 
@@ -111,7 +101,7 @@ const Estatisticas = () => {
             <div className="flex items-center gap-2">
               {isAdmin && (
                 <button 
-                  onClick={togglePauseFines} 
+                  onClick={togglePauseFinesGlobal} 
                   className={`px-3 h-8 border rounded-full text-[8px] font-black uppercase tracking-widest transition-colors ${pauseFines ? "bg-rose-500/20 border-rose-500/50 text-rose-400" : "bg-white/5 border-white/10 text-slate-400"}`}
                 >
                   {pauseFines ? "Multas Pausadas ⏸️" : "Pausar Multas"}
