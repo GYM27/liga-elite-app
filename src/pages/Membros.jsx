@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { useAdmin } from "../context/AdminContext";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { supabase } from "../lib/supabaseClient";
@@ -15,8 +16,18 @@ const Membros = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ nome: "", foto_url: "", liga_atual: "Norte" });
   const [isAdding, setIsAdding] = useState(false);
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // all, norte, sul, divida
+  const [activeTab, setActiveTab] = useState("all");
+
+  // Sync activeTab with query param if present
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const filter = params.get('filter');
+    if (filter === 'pendentes') {
+      setActiveTab('pendentes');
+    }
+  }, [location.search]);
 
   const handleEdit = (player) => {
     setEditingId(player.jogador_id);
@@ -55,10 +66,12 @@ const Membros = () => {
     return (ranking || []).filter(player => {
       const matchesSearch = player.nome.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTab = 
-        activeTab === "all" || 
-        (activeTab === "norte" && player.liga_atual === "Norte") ||
-        (activeTab === "sul" && player.liga_atual === "Sul") ||
-        (activeTab === "divida" && player.em_divida);
+      activeTab === "all" || 
+      (activeTab === "norte" && player.liga_atual === "Norte") ||
+      (activeTab === "sul" && player.liga_atual === "Sul") ||
+      (activeTab === "divida" && player.em_divida) ||
+      (activeTab === "pendentes" && player.mensalidade_paga === false);
+
       return matchesSearch && matchesTab;
     });
   }, [ranking, searchTerm, activeTab]);
