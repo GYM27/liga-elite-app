@@ -30,13 +30,27 @@ export const useEliteTime = () => {
     year: "numeric",
   });
 
-  // 3. Cálculo da Semana Elite (Ajuste +26)
+  // 3. Cálculo da Semana Elite (Início a 8 de Junho de 2026)
   const getEliteWeek = (d) => {
-    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
-    return weekNo + 26;
+    // 8 de Junho de 2026 (o mês em JS começa no 0, logo Junho é 5)
+    const seasonStartDate = new Date(2026, 5, 8); 
+    
+    // Normalizar as datas (remover as horas)
+    const current = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const start = new Date(seasonStartDate.getFullYear(), seasonStartDate.getMonth(), seasonStartDate.getDate());
+    
+    // Ajustar as datas para a segunda-feira correspondente à sua semana
+    const currentDay = current.getDay() || 7;
+    current.setDate(current.getDate() - currentDay + 1);
+    
+    const startDay = start.getDay() || 7;
+    start.setDate(start.getDate() - startDay + 1);
+    
+    // Calcular a diferença em semanas
+    const diffTime = current.getTime() - start.getTime();
+    const diffWeeks = Math.round(diffTime / (1000 * 60 * 60 * 24 * 7));
+    
+    return diffWeeks + 1;
   };
 
   return {
