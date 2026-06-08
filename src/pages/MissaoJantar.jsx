@@ -13,7 +13,7 @@ const MissaoJantar = () => {
     addProposta, votar, fecharVotacao, resolverApostaOficial, eliminarProposta, editarProposta
   } = useMissaoData();
 
-  const [newProp, setNewProp] = useState({ jogadorId: '', jogo: '', mercado: '' });
+  const [newProp, setNewProp] = useState({ jogadorId: '', equipaCasa: '', equipaFora: '', aposta: '' });
   const [voterId, setVoterId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPropId, setEditingPropId] = useState(null);
@@ -47,18 +47,21 @@ const MissaoJantar = () => {
   })).sort((a, b) => b.totalVotos - a.totalVotos);
 
   const handleAddProposta = async () => {
-    if (!newProp.jogadorId || !newProp.jogo || !newProp.mercado) return alert("Preenche tudo!");
+    if (!newProp.jogadorId || !newProp.equipaCasa || !newProp.equipaFora || !newProp.aposta) return alert("Preenche tudo!");
     setIsSubmitting(true);
+    
+    const jogoDb = `${newProp.equipaCasa} vs ${newProp.equipaFora}`;
+    const mercadoDb = newProp.aposta;
     
     // Mandamos sempre odd 1.0 para a base de dados para não quebrar a coluna NOT NULL
     if (editingPropId) {
-      await editarProposta(editingPropId, newProp.jogo, newProp.mercado, 1.0);
+      await editarProposta(editingPropId, jogoDb, mercadoDb, 1.0);
       setEditingPropId(null);
     } else {
-      await addProposta(newProp.jogadorId, newProp.jogo, newProp.mercado, 1.0);
+      await addProposta(newProp.jogadorId, jogoDb, mercadoDb, 1.0);
     }
     
-    setNewProp({ jogadorId: '', jogo: '', mercado: '' });
+    setNewProp({ jogadorId: '', equipaCasa: '', equipaFora: '', aposta: '' });
     setIsSubmitting(false);
   };
 
@@ -183,7 +186,7 @@ const MissaoJantar = () => {
               <h4 className="text-sm font-black text-white uppercase italic">{editingPropId ? "Editar Palpite" : "Sugerir Palpite"}</h4>
               {editingPropId && (
                 <button 
-                  onClick={() => { setEditingPropId(null); setNewProp({ jogadorId: '', jogo: '', mercado: '' }); }}
+                  onClick={() => { setEditingPropId(null); setNewProp({ jogadorId: '', equipaCasa: '', equipaFora: '', aposta: '' }); }}
                   className="ml-auto text-[10px] text-rose-500 uppercase font-black px-2 py-1 bg-rose-500/10 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"
                 >
                   Cancelar Edição
@@ -201,15 +204,22 @@ const MissaoJantar = () => {
               {ranking?.map(j => <option key={j.jogador_id} value={j.jogador_id}>{j.nome}</option>)}
             </select>
             
-            <input 
-              placeholder="Jogo (Ex: Real Madrid vs City)" 
-              value={newProp.jogo} onChange={e => setNewProp({...newProp, jogo: e.target.value})}
-              className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <input 
+                placeholder="Equipa Casa" 
+                value={newProp.equipaCasa} onChange={e => setNewProp({...newProp, equipaCasa: e.target.value})}
+                className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
+              />
+              <input 
+                placeholder="Equipa Fora" 
+                value={newProp.equipaFora} onChange={e => setNewProp({...newProp, equipaFora: e.target.value})}
+                className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
+              />
+            </div>
             
             <input 
-              placeholder="Mercado (Ex: Real a ganhar)" 
-              value={newProp.mercado} onChange={e => setNewProp({...newProp, mercado: e.target.value})}
+              placeholder="Aposta (Ex: Vencedor Casa, Real Madrid)" 
+              value={newProp.aposta} onChange={e => setNewProp({...newProp, aposta: e.target.value})}
               className="w-full h-12 bg-slate-950 border border-white/10 rounded-xl px-4 text-xs font-bold text-white outline-none"
             />
             
@@ -263,7 +273,13 @@ const MissaoJantar = () => {
                     <button 
                       onClick={() => {
                         setEditingPropId(p.id);
-                        setNewProp({ jogadorId: p.jogador_id, jogo: p.jogo, mercado: p.mercado });
+                        const [casa, fora] = (p.jogo || "").split(" vs ");
+                        setNewProp({ 
+                          jogadorId: p.jogador_id, 
+                          equipaCasa: casa || '', 
+                          equipaFora: fora || '',
+                          aposta: p.mercado || ''
+                        });
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       disabled={isSubmitting}
