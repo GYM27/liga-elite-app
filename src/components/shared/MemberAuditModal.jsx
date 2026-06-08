@@ -78,12 +78,22 @@ const MemberAuditModal = ({ player, onClose, isAdmin, onActionComplete }) => {
     }
   };
 
-  const handleDeleteDebt = async (debtId) => {
+  const handleDeleteDebt = async (debt) => {
     if (!isAdmin) return;
     if (!window.confirm("Deseja ANULAR esta dívida/multa permanentemente?")) return;
     setLoading(true);
     try {
-      await supabase.from("banca_transacoes").delete().eq("id", debtId);
+      if (debt.descricao && debt.descricao.includes("Atraso s")) {
+        // Para multas automáticas de atraso, atualizamos em vez de apagar
+        // Isto previne que o script automático volte a inserir a multa nesta semana!
+        await supabase.from("banca_transacoes").update({
+          pago: true,
+          valor: 0,
+          descricao: debt.descricao + " [ANULADA]"
+        }).eq("id", debt.id);
+      } else {
+        await supabase.from("banca_transacoes").delete().eq("id", debt.id);
+      }
       setStatusMsg({ t: "DÍVIDA ANULADA! 🏮🏁", c: "text-rose-500 font-bold" });
       if (onActionComplete) onActionComplete();
     } catch (err) {
@@ -136,7 +146,7 @@ const MemberAuditModal = ({ player, onClose, isAdmin, onActionComplete }) => {
                       <p className="text-2xl font-display font-black text-rose-500">{formatCurrency(Math.abs(d.valor))}</p>
                     </div>
                     {isAdmin && (
-                      <button onClick={() => handleDeleteDebt(d.id)} className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90">
+                      <button onClick={() => handleDeleteDebt(d)} className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90">
                         <Trash2 size={16} />
                       </button>
                     )}

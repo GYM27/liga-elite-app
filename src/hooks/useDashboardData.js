@@ -291,7 +291,13 @@ export const useDashboardData = () => {
 
         // 3. Falta de palpite (da Terça-feira em diante, apenas se houver jogo nesta semana)
         const temJogoEstaSemana = fullHistoryMapped.some(p => Number(p.semana) === currentWeekNum);
-        if (isPastMonday && !submeteu && temJogoEstaSemana) {
+        
+        // Verifica se houve uma multa de atraso que foi anulada/perdoada
+        const multaAtrasoAnulada = allBancaTransactions.some(
+          (t) => t.jogador_id === r.jogador_id && t.descricao && t.descricao.includes(`Atraso s${currentWeekNum}`) && t.descricao.includes("[ANULADA]")
+        );
+
+        if (isPastMonday && !submeteu && temJogoEstaSemana && !multaAtrasoAnulada) {
           emDivida = true; // Se não postou o palpite semanal já passa a vermelho
           motivo = motivo ? "FALTA PALPITE + DÍVIDA" : "FALTA PALPITE DA SEMANA";
         }

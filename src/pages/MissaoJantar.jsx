@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useMissaoData } from '../hooks/useMissaoData';
-import { Heart, Target, TrendingUp, Check, X, AlertCircle, Award, Gavel, Trash2, Edit3 } from 'lucide-react';
+import { Heart, Target, TrendingUp, Check, X, AlertCircle, Award, Gavel, Trash2, Edit3, ThumbsUp } from 'lucide-react';
 import { EliteCard, EliteButton, EliteAvatar } from '../components/ui';
 
 const MissaoJantar = () => {
@@ -247,29 +247,28 @@ const MissaoJantar = () => {
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Votação Aberta</h4>
 
               {propostasComVotos.map((p, idx) => (
-                <div key={p.id} className="bg-slate-900/50 border border-white/5 rounded-2xl p-4 flex gap-4 items-center">
+                <div key={p.id} className="bg-slate-900/50 border border-white/5 rounded-2xl p-4 flex gap-3 items-center">
                   <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-950 rounded-xl border border-white/5 shrink-0">
                     <span className="text-[10px] text-slate-500 uppercase font-black">Votos</span>
                     <span className="text-lg font-black text-primary">{p.totalVotos}</span>
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="text-xs font-black text-white uppercase truncate">{p.jogo}</p>
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-bold leading-tight">{p.mercado}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white uppercase leading-tight break-words">{p.jogo}</p>
+                    <p className="text-[10px] text-slate-400 font-bold leading-tight break-words mt-1">{p.mercado}</p>
                     <p className="text-[8px] font-black text-slate-600 uppercase mt-2">Por: {p.jogador?.nome}</p>
                   </div>
                   
-                  <button 
-                    onClick={() => handleVotar(p.id)}
-                    disabled={isSubmitting}
-                    className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center border border-primary/20 hover:bg-primary hover:text-slate-950 transition-colors shrink-0"
-                  >
-                    +1
-                  </button>
-                  
-                  <div className="flex gap-1 ml-1">
+                  <div className="flex gap-1 shrink-0 ml-1">
+                    <button 
+                      onClick={() => handleVotar(p.id)}
+                      disabled={isSubmitting}
+                      className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center border border-primary/20 hover:bg-primary hover:text-slate-950 transition-colors shrink-0"
+                      title="Votar"
+                    >
+                      <ThumbsUp size={18} />
+                    </button>
+                    
                     <button 
                       onClick={() => {
                         setEditingPropId(p.id);

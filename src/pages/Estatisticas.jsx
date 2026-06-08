@@ -44,7 +44,7 @@ const Estatisticas = () => {
            const idsComPalpites = new Set((palpitesSemana || []).map(p => p.jogador_id));
 
            const novosDevedores = ranking.filter(p => !idsComPalpites.has(p.jogador_id) && !idsComMulta.has(p.jogador_id))
-             .map(p => ({ valor: 1.0, tipo: "MULTA", descricao: `Multa Atraso s${currentWeek}`, pago: false, jogador_id: p.jogador_id, created_at: new Date().toISOString() }));
+             .map(p => ({ valor: 1.0, tipo: "MULTA", descricao: `Multa Atraso s${currentWeek} - ${p.nome}`, pago: false, jogador_id: p.jogador_id, created_at: new Date().toISOString() }));
 
            if (novosDevedores.length > 0) {
              await supabase.from("banca_transacoes").insert(novosDevedores);
@@ -149,16 +149,16 @@ const Estatisticas = () => {
           <div className="space-y-3 animate-in slide-in-from-top-2 fade-in duration-300">
             {stats.transacoes?.slice().reverse().slice(0, 10).map((t, idx) => (
               <EliteCard key={t.id || idx} padding="p-5" className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.pago ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
+                <div className="flex items-center gap-3 flex-1 min-w-0 pr-3">
+                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${t.pago ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
                     {t.pago ? <TrendingUp size={14} /> : <AlertCircle size={14} />}
                   </div>
-                  <div>
-                    <p className="text-xs font-black text-white italic truncate max-w-[150px]">{t.descricao}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white italic leading-tight break-words">{t.descricao}</p>
                     <p className="text-[8px] text-slate-600 font-bold uppercase mt-1 tracking-widest">{t.created_at ? new Date(t.created_at).toLocaleDateString() : "ELITE"}</p>
                   </div>
                 </div>
-                <p className={`text-lg font-display font-black tracking-tight ${t.pago ? "text-emerald-400" : "text-slate-500"}`}>
+                <p className={`shrink-0 text-lg font-display font-black tracking-tight ${t.pago ? "text-emerald-400" : "text-slate-500"}`}>
                   {t.tipo === "SAIDA" ? "-" : "+"}{formatCurrency(Math.abs(t.valor))}
                 </p>
               </EliteCard>
