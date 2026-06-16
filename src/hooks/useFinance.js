@@ -72,8 +72,8 @@ export const useFinance = () => {
 
       const { error: trError } = await supabase.from("banca_transferencias").insert([{
         valor: amount,
-        de,
-        para,
+        origem: de,
+        destino: para,
         data: new Date().toISOString()
       }]);
       if (trError) throw trError;

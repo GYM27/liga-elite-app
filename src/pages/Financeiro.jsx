@@ -137,7 +137,7 @@ const Financeiro = () => {
                     <ArrowRightLeft size={16} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-white uppercase italic">{t.de} → {t.para}</p>
+                    <p className="text-[10px] font-black text-white uppercase italic">{t.origem} → {t.destino}</p>
                     <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{formatDate(t.created_at || t.data)}</p>
                   </div>
                 </div>
