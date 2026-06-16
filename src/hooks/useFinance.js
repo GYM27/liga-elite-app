@@ -13,8 +13,8 @@ export const useFinance = () => {
     try {
       const [{ data: pData }, { data: tData }, { data: trData }] = await Promise.all([
         supabase.from("banca_particoes").select("*").eq("id", 1).maybeSingle(),
-        supabase.from("banca_transacoes").select("*").order("created_at", { ascending: false }).limit(50),
-        supabase.from("banca_transferencias").select("*").order("created_at", { ascending: false }).limit(20)
+        supabase.from("banca_transacoes").select("*").order("data_movimento", { ascending: false }).limit(50),
+        supabase.from("banca_transferencias").select("*").order("data", { ascending: false }).limit(20)
       ]);
 
       if (pData) {
@@ -36,24 +36,34 @@ export const useFinance = () => {
     fetchFinanceData();
   }, [fetchFinanceData]);
 
-  const addManualTransaction = async ({ valor, tipo, descricao, jogador_id = null }) => {
+  const addManualTransaction = async ({ valor, tipo, descricao, jogador_id = null, destino = "CASA" }) => {
     setSaving(true);
     try {
       const amount = Math.abs(Number(valor));
+      const prefixo = destino === "BANCO" ? "[BANCO] " : "[CASA] ";
+      
       const { error: tError } = await supabase.from("banca_transacoes").insert([
         {
           valor: amount,
           tipo,
-          descricao: descricao.toUpperCase(),
+          descricao: `${prefixo}${descricao.toUpperCase()}`,
           jogador_id,
           pago: true,
-          created_at: new Date().toISOString(),
+          data_movimento: new Date().toISOString(),
         },
       ]);
       if (tError) throw tError;
 
-      const newCasa = partitions.casa + (tipo === "ENTRADA" ? amount : -amount);
-      await supabase.from("banca_particoes").update({ casa_valor: newCasa }).eq("id", 1);
+      const updates = {};
+      const amountToAdd = tipo === "ENTRADA" ? amount : -amount;
+      
+      if (destino === "BANCO") {
+        updates.banco_valor = partitions.banco + amountToAdd;
+      } else {
+        updates.casa_valor = partitions.casa + amountToAdd;
+      }
+
+      await supabase.from("banca_particoes").update(updates).eq("id", 1);
       
       await fetchFinanceData();
       return { success: true };

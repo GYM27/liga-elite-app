@@ -205,8 +205,8 @@ export const useDashboardData = () => {
           .select("*");
         if (bE) console.warn("Erro na banca:", bE);
         allBancaTransactions = (bD || []).sort((a, b) => {
-          const dateA = new Date(a.created_at || a.data || a.id || 0);
-          const dateB = new Date(b.created_at || b.data || b.id || 0);
+          const dateA = new Date(a.data_movimento || a.created_at || a.data || a.id || 0);
+          const dateB = new Date(b.data_movimento || b.created_at || b.data || b.id || 0);
           return dateA - dateB;
         });
       } catch (e) {
@@ -493,7 +493,7 @@ export const useDashboardData = () => {
         valor: amount,
         tipo: "SAIDA",
         descricao: `Stake Bilhete S${week} - ${league.toUpperCase()}`,
-        created_at: new Date().toISOString()
+        data_movimento: new Date().toISOString()
       }]);
 
       // 4. Marcar como Emitido
@@ -534,7 +534,7 @@ export const useDashboardData = () => {
               descricao: `${descBase} (${id.slice(0,4)})`,
               jogador_id: pData.jogador_id,
               pago: false,
-              created_at: new Date().toISOString()
+              data_movimento: new Date().toISOString()
             }]);
           }
         } else if (result === "GREEN" || result === "PENDENTE") {

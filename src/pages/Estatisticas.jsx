@@ -44,7 +44,7 @@ const Estatisticas = () => {
            const idsComPalpites = new Set((palpitesSemana || []).map(p => p.jogador_id));
 
            const novosDevedores = ranking.filter(p => !idsComPalpites.has(p.jogador_id) && !idsComMulta.has(p.jogador_id))
-             .map(p => ({ valor: 1.0, tipo: "MULTA", descricao: `Multa Atraso s${currentWeek} - ${p.nome}`, pago: false, jogador_id: p.jogador_id, created_at: new Date().toISOString() }));
+             .map(p => ({ valor: 1.0, tipo: "MULTA", descricao: `Multa Atraso s${currentWeek} - ${p.nome}`, pago: false, jogador_id: p.jogador_id, data_movimento: new Date().toISOString() }));
 
            if (novosDevedores.length > 0) {
              await supabase.from("banca_transacoes").insert(novosDevedores);
@@ -155,7 +155,7 @@ const Estatisticas = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black text-white italic leading-tight break-words">{t.descricao}</p>
-                    <p className="text-[8px] text-slate-600 font-bold uppercase mt-1 tracking-widest">{t.created_at ? new Date(t.created_at).toLocaleDateString() : "ELITE"}</p>
+                    <p className="text-[8px] text-slate-600 font-bold uppercase mt-1 tracking-widest">{(t.data_movimento || t.created_at) ? new Date(t.data_movimento || t.created_at).toLocaleDateString() : "ELITE"}</p>
                   </div>
                 </div>
                 <p className={`shrink-0 text-lg font-display font-black tracking-tight ${t.pago ? "text-emerald-400" : "text-slate-500"}`}>
@@ -186,7 +186,7 @@ const Estatisticas = () => {
               setSaving(true);
               try {
                 const amount = Number(formData.valor.replace(",", "."));
-                await supabase.from("banca_transacoes").insert([{ valor: amount, tipo: "MULTA", descricao: formData.descricao, jogador_id: formData.jogador_id, pago: false, created_at: new Date().toISOString() }]);
+                await supabase.from("banca_transacoes").insert([{ valor: amount, tipo: "MULTA", descricao: formData.descricao, jogador_id: formData.jogador_id, pago: false, data_movimento: new Date().toISOString() }]);
                 setIsAddModalOpen(false);
                 setFormData({ valor: "", tipo: "ENTRADA", descricao: "", jogador_id: "", pago: true });
                 fetchData();

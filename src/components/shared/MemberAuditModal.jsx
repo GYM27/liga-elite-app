@@ -28,7 +28,7 @@ const MemberAuditModal = ({ player, onClose, isAdmin, onActionComplete }) => {
           descricao: `Mensalidade ${monthLabel} - ${player.nome}`,
           jogador_id: player.jogador_id,
           pago: true,
-          created_at: new Date().toISOString(),
+          data_movimento: new Date().toISOString(),
         },
       ]);
 

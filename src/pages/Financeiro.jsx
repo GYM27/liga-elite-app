@@ -17,12 +17,12 @@ const Financeiro = () => {
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [transferencia, setTransferencia] = useState({ valor: "", de: "BANCO", para: "CASA" });
-  const [manualMovement, setManualMovement] = useState({ valor: "", tipo: "ENTRADA", descricao: "" });
+  const [manualMovement, setManualMovement] = useState({ valor: "", tipo: "ENTRADA", descricao: "", destino: "CASA" });
 
   const handleManualTransaction = async () => {
     if (!manualMovement.valor || !manualMovement.descricao) return;
     const res = await addManualTransaction(manualMovement);
-    if (res.success) setManualMovement({ valor: "", tipo: "ENTRADA", descricao: "" });
+    if (res.success) setManualMovement({ valor: "", tipo: "ENTRADA", descricao: "", destino: "CASA" });
     else alert(res.error);
   };
 
@@ -82,10 +82,14 @@ const Financeiro = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <input type="number" placeholder="0.00" value={manualMovement.valor} onChange={(e) => setManualMovement({ ...manualMovement, valor: e.target.value })} className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-4 text-xl font-black text-white text-center" />
-            <input type="text" placeholder="DESCRIÇÃO..." value={manualMovement.descricao} onChange={(e) => setManualMovement({ ...manualMovement, descricao: e.target.value })} className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-black text-white italic uppercase" />
+            <select value={manualMovement.destino} onChange={(e) => setManualMovement({ ...manualMovement, destino: e.target.value })} className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-4 text-[10px] font-black text-white italic uppercase text-center appearance-none">
+              <option value="CASA">🎰 DESTINO: CASA</option>
+              <option value="BANCO">🏦 DESTINO: BANCO</option>
+            </select>
           </div>
+          <input type="text" placeholder="DESCRIÇÃO..." value={manualMovement.descricao} onChange={(e) => setManualMovement({ ...manualMovement, descricao: e.target.value })} className="w-full h-14 bg-slate-950 border border-white/10 rounded-2xl px-5 text-[10px] font-black text-white italic uppercase" />
 
           <EliteButton variant={manualMovement.tipo === "ENTRADA" ? "success" : "danger"} onClick={handleManualTransaction} disabled={saving} icon={PlusCircle}>
             {saving ? "A PROCESSAR..." : "CONFIRMAR MOVIMENTO"}
@@ -138,7 +142,7 @@ const Financeiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-white uppercase italic">{t.origem} → {t.destino}</p>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{formatDate(t.created_at || t.data)}</p>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{formatDate(t.data_movimento || t.created_at || t.data)}</p>
                   </div>
                 </div>
                 <p className="text-xl font-display font-black text-white italic">{formatCurrency(t.valor)}</p>

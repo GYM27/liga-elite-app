@@ -63,7 +63,7 @@ const PerfilJogador = () => {
     const playerTransacoes = dashStats.transacoes.filter(t => 
       t.jogador_id === id && 
       t.pago === true &&
-      new Date(t.created_at || 0) >= epocaStart
+      new Date(t.data_movimento || t.created_at || 0) >= epocaStart
     );
     
     // Na nossa lógica, o que o jogador "investiu" na Liga é o que ele pagou de Mensalidade ou Entrada
@@ -78,7 +78,7 @@ const PerfilJogador = () => {
       totalInvestido,
       totalMensalidades,
       totalMultas,
-      historico: transacoesValidas.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+      historico: transacoesValidas.sort((a,b) => new Date(b.data_movimento || b.created_at || 0) - new Date(a.data_movimento || a.created_at || 0))
     };
   }, [dashStats, id]);
 
@@ -264,7 +264,7 @@ const PerfilJogador = () => {
                     <div>
                       <p className="text-[10px] font-black text-white uppercase italic">{t.descricao}</p>
                       <p className="text-[8px] font-black text-slate-500 uppercase mt-0.5 tracking-widest">
-                        {new Date(t.created_at).toLocaleDateString()}
+                        {new Date(t.data_movimento || t.created_at || 0).toLocaleDateString()}
                       </p>
                     </div>
                     <p className={`text-sm font-black italic ${t.tipo === 'MULTA' ? 'text-rose-400' : 'text-emerald-400'}`}>
