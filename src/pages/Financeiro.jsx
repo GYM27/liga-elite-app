@@ -3,7 +3,7 @@ import { useAdmin } from "../context/AdminContext";
 import { useFinance } from "../hooks/useFinance";
 import {
   Wallet, PlusCircle, ArrowRightLeft, TrendingUp, TrendingDown,
-  Landmark, Loader2, Calendar, ChevronDown, ChevronUp
+  Landmark, Loader2, Calendar, ChevronDown, ChevronUp, Trash2
 } from "lucide-react";
 import { EliteCard, EliteButton, EliteBadge } from "../components/ui";
 import { formatCurrency, formatDate } from "../utils/formatters";
@@ -12,7 +12,7 @@ const Financeiro = () => {
   const { isAdmin } = useAdmin();
   const { 
     loading, saving, partitions, transactions, transfers, 
-    addManualTransaction, executeTransfer, refresh 
+    addManualTransaction, executeTransfer, undoMovement, refresh 
   } = useFinance();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -45,29 +45,39 @@ const Financeiro = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4 text-left">
-        <EliteCard variant="primary" padding="p-8">
+        <EliteCard variant="glass" padding="p-8">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-[10px] font-black text-primary/70 uppercase tracking-[0.3em] mb-1 italic">Valor na Casa de Apostas (🎰)</p>
-              <p className="text-5xl font-black text-white italic tracking-tighter">{formatCurrency(partitions.casa)}</p>
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-1 italic">Saldo em Caixa Total</p>
+              <p className="text-5xl font-black text-white italic tracking-tighter">{formatCurrency(partitions.casa + partitions.banco)}</p>
             </div>
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
-              <TrendingUp size={28} />
+            <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+              <Wallet size={28} />
             </div>
           </div>
         </EliteCard>
 
-        <EliteCard variant="default" padding="p-8">
-          <div className="flex justify-between items-center opacity-80">
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 italic">Conta Bancária (🏦)</p>
-              <p className="text-3xl font-black text-white italic tracking-tighter">{formatCurrency(partitions.banco)}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <EliteCard variant="primary" padding="p-6">
+            <div className="flex flex-col justify-between h-full">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp size={16} className="text-primary" />
+                <p className="text-[9px] font-black text-primary/70 uppercase tracking-[0.2em] italic">Casa (🎰)</p>
+              </div>
+              <p className="text-2xl font-black text-white italic tracking-tighter">{formatCurrency(partitions.casa)}</p>
             </div>
-            <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
-              <Landmark size={28} />
+          </EliteCard>
+
+          <EliteCard variant="default" padding="p-6">
+            <div className="flex flex-col justify-between h-full opacity-80">
+              <div className="flex items-center gap-2 mb-3">
+                <Landmark size={16} className="text-blue-400" />
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Banco (🏦)</p>
+              </div>
+              <p className="text-2xl font-black text-white italic tracking-tighter">{formatCurrency(partitions.banco)}</p>
             </div>
-          </div>
-        </EliteCard>
+          </EliteCard>
+        </div>
       </div>
 
       {isAdmin && (
@@ -134,20 +144,62 @@ const Financeiro = () => {
 
         {isHistoryOpen && (
           <div className="space-y-3 animate-in slide-in-from-top-2 fade-in duration-300">
-            {transfers.map((t, idx) => (
-              <EliteCard key={t.id || idx} padding="p-5" className="flex items-center justify-between border-primary/10">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                    <ArrowRightLeft size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-white uppercase italic">{t.origem} → {t.destino}</p>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{formatDate(t.data_movimento || t.created_at || t.data)}</p>
-                  </div>
-                </div>
-                <p className="text-xl font-display font-black text-white italic">{formatCurrency(t.valor)}</p>
-              </EliteCard>
-            ))}
+            {[...transfers, ...transactions]
+              .sort((a, b) => {
+                const dA = new Date(a.created_at || a.data || a.data_movimento || Date.now());
+                const dB = new Date(b.created_at || b.data || b.data_movimento || Date.now());
+                return dB - dA;
+              })
+              .slice(0, 30)
+              .map((t, idx) => {
+                const isTransfer = !!t.de; // transferências têm 'de' e 'para'
+                const d = new Date(t.created_at || t.data || t.data_movimento || Date.now());
+
+                return (
+                  <EliteCard key={t.id || idx} padding="p-5" className="flex items-center justify-between border-primary/10">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        isTransfer ? "bg-primary/10 text-primary" : 
+                        t.tipo === "SAIDA" || t.tipo === "LEVANTAMENTO" || t.tipo === "PREMIO" ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500"
+                      }`}>
+                        {isTransfer ? <ArrowRightLeft size={16} /> : 
+                         t.tipo === "SAIDA" || t.tipo === "LEVANTAMENTO" || t.tipo === "PREMIO" ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-white uppercase italic max-w-[120px] truncate">
+                          {isTransfer ? `${t.de} → ${t.para}` : t.descricao}
+                        </p>
+                        <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{formatDate(d.toISOString())}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <p className={`text-lg font-display font-black italic ${
+                        isTransfer ? "text-white" : 
+                        t.tipo === "SAIDA" || t.tipo === "LEVANTAMENTO" || t.tipo === "PREMIO" ? "text-rose-500" : "text-emerald-500"
+                      }`}>
+                        {!isTransfer && (t.tipo === "ENTRADA" || t.tipo === "MENSALIDADE" || t.tipo === "MULTA" ? "+" : "-")}
+                        {formatCurrency(t.valor)}
+                      </p>
+                      {isAdmin && (
+                        <button 
+                          onClick={() => { 
+                            if(window.confirm("Tens a certeza que queres anular este movimento?")) {
+                              undoMovement(t).then(res => {
+                                if(!res.success) alert(res.error);
+                              });
+                            }
+                          }} 
+                          disabled={saving} 
+                          className="w-8 h-8 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors active:scale-90"
+                          title="Anular Movimento"
+                        >
+                          {saving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      )}
+                    </div>
+                  </EliteCard>
+                );
+              })}
           </div>
         )}
       </section>

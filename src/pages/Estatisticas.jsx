@@ -126,15 +126,7 @@ const Estatisticas = () => {
         </div>
       </section>
 
-      <div className="px-2 text-left">
-        <EliteCard variant="primary" padding="p-8">
-          <p className="text-[10px] font-black text-primary/70 uppercase tracking-[0.3em] mb-2 italic">Saldo em Caixa Real</p>
-          <p className="text-6xl font-display font-black text-white tracking-tighter italic">{formatCurrency(stats.saldo)}</p>
-          <div className="absolute right-8 top-1/2 -translate-y-1/2 w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-inner shadow-primary/20">
-            <Wallet size={32} />
-          </div>
-        </EliteCard>
-      </div>
+
 
       <section className="px-2 space-y-4 text-left">
         <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="w-full flex items-center justify-between px-1 active:scale-95 transition-all">

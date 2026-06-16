@@ -401,37 +401,49 @@ const PlayerCard = ({
   }, [initialData, week]);
 
   // VALIDAÇÃO DE CONFLITO / REPETIÇÃO
-  const getCollisionMessage = () => {
-    if (!details.ec || !details.ef) return null;
+  const checkCollisions = () => {
+    if (!details.ec || !details.ef) return { type: null, message: null };
     
     const h = details.ec.trim().toLowerCase();
     const a = details.ef.trim().toLowerCase();
     
-    // 1. Mesmo Nome (Regra Básica)
-    if (h === a) return "Um jogo não pode ser contra a própria equipa!";
+    if (h === a) return { type: 'BLOCK', message: "Um jogo não pode ser contra a própria equipa!" };
     
-    // 2. Colisão Global (Mesmo Jogo ou Invertido)
-    const collision = allPalpites.find(p => {
-      if (p.jogador_id === jogador.jogador_id) return false;
+    let inverted = null;
+    for (const p of allPalpites) {
+      if (p.jogador_id === jogador.jogador_id) continue;
       const p_h = (p.equipa_casa || "").trim().toLowerCase();
       const p_a = (p.equipa_fora || "").trim().toLowerCase();
-      return (p_h === h && p_a === a) || (p_h === a && p_a === h);
-    });
-    
-    if (collision) {
-      return `Conflito! Este jogo já foi escolhido por ${collision.jogadores?.nome || "outro sócio"}!`;
+      
+      if (p_h === h && p_a === a) {
+        return { type: 'BLOCK', message: `Conflito! Este jogo já foi escolhido por ${p.jogadores?.nome || "outro sócio"}!` };
+      }
+      if (p_h === a && p_a === h) {
+        inverted = p;
+      }
     }
     
-    return null;
+    if (inverted) {
+      return { type: 'WARN', message: `Atenção: Jogo semelhante (equipas trocadas) escolhido por ${inverted.jogadores?.nome || "outro sócio"}. Confirmas que é um jogo diferente?` };
+    }
+    
+    return { type: null, message: null };
   };
 
-  const collisionError = getCollisionMessage();
+  const collision = checkCollisions();
+  const isBlocked = collision.type === 'BLOCK';
 
   const saveToDB = async (novoTipo = null) => {
-    if (collisionError) {
-      alert(collisionError);
+    if (collision.type === 'BLOCK') {
+      alert(collision.message);
       return;
     }
+    if (collision.type === 'WARN') {
+      if (!window.confirm(`${collision.message}\n\nQueres mesmo submeter esta escolha?`)) {
+        return;
+      }
+    }
+    
     setSaving(true);
     try {
       const finalStatus = novoTipo || currentResult || "PENDENTE";
@@ -533,11 +545,11 @@ const PlayerCard = ({
         </div>
       </div>
       
-      {collisionError && (
-        <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-1">
-          <AlertCircle className="text-rose-500 shrink-0" size={14} />
-          <p className="text-[9px] font-black text-rose-500 uppercase italic leading-tight">
-            {collisionError}
+      {collision.type && (
+        <div className={`mt-4 p-3 border rounded-xl flex items-center gap-2 animate-in slide-in-from-top-1 ${collision.type === 'BLOCK' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
+          <AlertCircle className={`shrink-0 ${collision.type === 'BLOCK' ? 'text-rose-500' : 'text-amber-500'}`} size={14} />
+          <p className={`text-[9px] font-black uppercase italic leading-tight ${collision.type === 'BLOCK' ? 'text-rose-500' : 'text-amber-500'}`}>
+            {collision.message}
           </p>
         </div>
       )}
@@ -545,8 +557,8 @@ const PlayerCard = ({
       {canEdit && (
         <button
           onClick={() => saveToDB()}
-          disabled={saving || !!collisionError}
-          className={`mt-6 w-full h-12 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all ${collisionError ? "bg-slate-800 text-slate-500 cursor-not-allowed" : (initialData ? "bg-amber-500 text-slate-950" : "bg-primary text-slate-950")}`}
+          disabled={saving || isBlocked}
+          className={`mt-6 w-full h-12 rounded-2xl font-black uppercase text-[10px] active:scale-95 transition-all ${isBlocked ? "bg-slate-800 text-slate-500 cursor-not-allowed" : (initialData ? "bg-amber-500 text-slate-950" : "bg-primary text-slate-950")}`}
         >
           {saving ? "..." : (initialData ? "Atualizar ✏️" : "Gravar 🔥")}
         </button>

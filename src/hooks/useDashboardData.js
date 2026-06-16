@@ -318,10 +318,10 @@ export const useDashboardData = () => {
 
       const liquidas = allBancaTransactions.filter((t) => t.pago !== false);
       const manualEntradas = liquidas
-        .filter((t) => ["ENTRADA", "MENSALIDADE", "PREMIO"].includes(t.tipo))
+        .filter((t) => ["ENTRADA", "MENSALIDADE", "MULTA"].includes(t.tipo))
         .reduce((acc, t) => acc + Number(t.valor), 0);
       const manualSaidas = liquidas
-        .filter((t) => ["SAIDA", "MULTA", "LEVANTAMENTO"].includes(t.tipo))
+        .filter((t) => ["SAIDA", "LEVANTAMENTO", "PREMIO"].includes(t.tipo))
         .reduce((acc, t) => acc + Math.abs(Number(t.valor)), 0);
 
       const WEEKLY_STAKE = 10.0;
